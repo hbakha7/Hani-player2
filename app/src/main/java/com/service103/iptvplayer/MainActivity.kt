@@ -791,7 +791,80 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openFullscreen() {
+    
+private fun openFullscreen() {
+    val original = playerView ?: return
+    val parent = original.parent as? ViewGroup ?: return
+
+    val oldOrientation = requestedOrientation
+    val oldIndex = parent.indexOfChild(original)
+    val oldParams = original.layoutParams
+
+    parent.removeView(original)
+
+    val dialog = Dialog(
+        this,
+        android.R.style.Theme_Black_NoTitleBar_Fullscreen
+    )
+
+    val frame = FrameLayout(this).apply {
+        setBackgroundColor(Color.BLACK)
+    }
+
+    val fullPlayer = PlayerView(this).apply {
+        useController = true
+        this.player = this@MainActivity.player
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        layoutParams = FrameLayout.LayoutParams(-1, -1)
+    }
+
+    frame.addView(fullPlayer)
+
+    val exit = Button(this).apply {
+        text = "✕"
+        textSize = 20f
+        isAllCaps = false
+        setTextColor(Color.WHITE)
+        background = rounded(Color.DKGRAY)
+        setOnClickListener { dialog.dismiss() }
+    }
+
+    frame.addView(
+        exit,
+        FrameLayout.LayoutParams(dp(52), dp(48)).apply {
+            gravity = Gravity.TOP or Gravity.END
+            setMargins(dp(8), dp(8), dp(8), dp(8))
+        }
+    )
+
+    dialog.setContentView(frame)
+
+    dialog.setOnDismissListener {
+        fullPlayer.player = null
+        (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
+
+        if (original.parent == null) {
+            parent.addView(
+                original,
+                oldIndex.coerceIn(0, parent.childCount),
+                oldParams
+            )
+        }
+
+        original.player = player
+        requestedOrientation = oldOrientation
+        fullscreenDialog = null
+    }
+
+    fullscreenDialog = dialog
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    dialog.show()
+    dialog.window?.setFlags(
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+    )
+}
+
         val original = playerView ?: return
         val parent = original.parent as? ViewGroup ?: return
 
