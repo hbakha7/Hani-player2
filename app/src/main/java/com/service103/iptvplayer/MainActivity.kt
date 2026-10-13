@@ -941,25 +941,148 @@ private fun openFullscreen() {
                 "ZOOM" -> {
                     fullPlayer.resizeMode =
                         androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    aspect.text = "ZOOM ▾"
+
+private fun openFullscreen() {
+    val original = playerView ?: return
+
+    if (fullscreenDialog?.isShowing == true) return
+
+    val parent = original.parent as? ViewGroup ?: return
+
+    val oldOrientation = requestedOrientation
+    val oldIndex = parent.indexOfChild(original)
+    val oldParams = original.layoutParams
+
+    parent.removeView(original)
+
+    val dialog = Dialog(
+        this,
+        android.R.style.Theme_Black_NoTitleBar_Fullscreen
+    )
+
+    val frame = FrameLayout(this).apply {
+        setBackgroundColor(Color.BLACK)
+    }
+
+    val fullPlayer = PlayerView(this).apply {
+        useController = true
+        player = this@MainActivity.player
+        resizeMode =
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+    }
+
+    frame.addView(fullPlayer)
+
+    // شريط التحكم العلوي
+    val controls = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(6), dp(4), dp(6), dp(4))
+        background = rounded(Color.argb(170, 20, 20, 20))
+    }
+
+    fun makeButton(label: String): Button {
+        return Button(this).apply {
+            text = label
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = rounded(Color.DKGRAY)
+            minWidth = dp(42)
+            minHeight = dp(42)
+            setPadding(dp(5), 0, dp(5), 0)
+        }
+    }
+
+    var isMuted = false
+
+    val volumeDown = makeButton("−")
+    volumeDown.setOnClickListener {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        audio.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.ADJUST_LOWER,
+            0
+        )
+    }
+
+    val volumeUp = makeButton("+")
+    volumeUp.setOnClickListener {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        audio.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.ADJUST_RAISE,
+            0
+        )
+    }
+
+    val muteButton = makeButton("🔊")
+    muteButton.setOnClickListener {
+        isMuted = !isMuted
+        player?.volume = if (isMuted) 0f else 1f
+        muteButton.text = if (isMuted) "🔇" else "🔊"
+    }
+
+    val aspect = makeButton("FIT ▾")
+    aspect.setOnClickListener {
+        val popup = PopupMenu(this, aspect)
+
+        popup.menu.add("FIT")
+        popup.menu.add("FULL")
+        popup.menu.add("ZOOM")
+        popup.menu.add("16:9")
+
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title.toString()) {
+                "FIT" -> {
+                    fullPlayer.resizeMode =
+                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
+
+                "FULL" -> {
+                    fullPlayer.resizeMode =
+                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                }
+
+                "ZOOM" -> {
+                    fullPlayer.resizeMode =
+                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 }
 
                 "16:9" -> {
                     fullPlayer.resizeMode =
                         androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    aspect.text = "16:9 ▾"
                 }
             }
+
+            aspect.text = item.title.toString() + " ▾"
             true
         }
 
         popup.show()
     }
 
-    controls.addView(volumeDown)
-    controls.addView(volumeUp)
-    controls.addView(mute)
-    controls.addView(aspect)
+    val exit = makeButton("✕")
+    exit.setOnClickListener {
+        dialog.dismiss()
+    }
+
+    listOf(volumeDown, volumeUp, muteButton, aspect, exit).forEach { button ->
+        controls.addView(
+            button,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(44)
+            ).apply {
+                setMargins(dp(3), 0, dp(3), 0)
+            }
+        )
+    }
 
     frame.addView(
         controls,
@@ -967,8 +1090,8 @@ private fun openFullscreen() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            setMargins(dp(4), dp(4), dp(4), dp(18))
+            gravity = Gravity.TOP or Gravity.END
+            setMargins(dp(6), dp(8), dp(6), dp(8))
         }
     )
 
@@ -976,7 +1099,9 @@ private fun openFullscreen() {
 
     dialog.setOnDismissListener {
         fullPlayer.player = null
+
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
+        (controls.parent as? ViewGroup)?.removeView(controls)
 
         if (original.parent == null) {
             parent.addView(
@@ -993,6 +1118,7 @@ private fun openFullscreen() {
 
     fullscreenDialog = dialog
     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
     dialog.show()
 
     dialog.window?.setFlags(
@@ -1000,6 +1126,7 @@ private fun openFullscreen() {
         WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
     )
 }
+
 
         
 
