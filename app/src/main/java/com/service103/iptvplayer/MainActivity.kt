@@ -93,13 +93,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun askDirect() {
-        val box = EditText(this).apply { hint = "https://example.com/video.m3u8"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI }
-        dialog("تشغيل رابط فيديو", box) {
-            val link = box.text.toString().trim()
-            if (link.isNotBlank()) play(Channel("Video", link))
+    
+private fun askDirect() {
+    val box = EditText(this).apply {
+        hint = "https://example.com/video.m3u8"
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_VARIATION_URI
+    }
+
+    dialog("تشغيل رابط فيديو", box) {
+        val link = box.text.toString().trim()
+
+        if (link.isNotBlank()) {
+            channels.clear()
+            channels.add(Channel("Video", link, "Direct"))
+            showChannels()
+            play(channels.first())
         }
     }
+}
+
 
     private fun askXtream() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)) }
