@@ -199,6 +199,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     
+
 private fun askDirect() {
     val input = EditText(this).apply {
         hint = "رابط فيديو MP4 أو M3U8"
@@ -237,6 +238,7 @@ private fun askDirect() {
         }
         .show()
 }
+
 
 
     private fun askXtream() {
