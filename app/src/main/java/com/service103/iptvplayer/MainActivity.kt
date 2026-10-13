@@ -865,69 +865,7 @@ private fun openFullscreen() {
     )
 }
 
-        val original = playerView ?: return
-        val parent = original.parent as? ViewGroup ?: return
-
-        savedParent = parent
-        savedIndex = parent.indexOfChild(original)
-        savedLayoutParams = original.layoutParams
-        parent.removeView(original)
-
-        val dialog = Dialog(
-            this,
-            android.R.style.Theme_Black_NoTitleBar_Fullscreen
-        )
-        val frame = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-        }
-
-        fullscreenView = PlayerView(this).apply {
-            useController = true
-            player = this@MainActivity.player
-            layoutParams = FrameLayout.LayoutParams(-1, -1)
-        }
-        frame.addView(fullscreenView)
-
-        val exit = Button(this).apply {
-            text = "✕"
-            isAllCaps = false
-            setTextColor(white)
-            background = rounded(Color.DKGRAY)
-            setOnClickListener { dialog.dismiss() }
-        }
-        val exitParams = FrameLayout.LayoutParams(dp(56), dp(48)).apply {
-            gravity = Gravity.TOP or Gravity.END
-            setMargins(dp(8), dp(8), dp(8), dp(8))
-        }
-        frame.addView(exit, exitParams)
-
-        dialog.setContentView(frame)
-        dialog.setOnDismissListener {
-            fullscreenView?.player = null
-            (fullscreenView?.parent as? ViewGroup)
-                ?.removeView(fullscreenView)
-            fullscreenView = null
-
-            val oldParent = savedParent
-            if (oldParent != null && original.parent == null) {
-                val index = savedIndex.coerceIn(0, oldParent.childCount)
-                oldParent.addView(
-                    original,
-                    index,
-                    savedLayoutParams
-                )
-            }
-            original.player = player
-            fullscreenDialog = null
-        }
-
-        fullscreenDialog = dialog
-        dialog.show()
-        dialog.window?.setFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
-    }
+        
 
     private fun showVolume() {
         val audio = getSystemService(AUDIO_SERVICE) as AudioManager
