@@ -805,9 +805,10 @@ private fun askDirect() {
     }
 
 
+
+
 private fun openFullscreen() {
     val original = playerView ?: return
-
     if (fullscreenDialog?.isShowing == true) return
 
     val parent = original.parent as? ViewGroup ?: return
@@ -826,149 +827,6 @@ private fun openFullscreen() {
         setBackgroundColor(Color.BLACK)
     }
 
-    val fullPlayer = PlayerView(this).apply {
-        useController = true
-        player = this@MainActivity.player
-        resizeMode =
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-        keepScreenOn = true
-    }
-
-    frame.addView(
-        fullPlayer,
-        FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-    )
-
-    // شريط التحكم
-    val controls = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER
-        setPadding(dp(4), dp(4), dp(4), dp(4))
-        background = rounded(Color.argb(210, 25, 25, 25), 10)
-    }
-
-    fun makeButton(textValue: String): Button {
-        return Button(this).apply {
-            text = textValue
-            textSize = 12f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            background = rounded(Color.DKGRAY, 8)
-            minWidth = dp(44)
-            minHeight = dp(44)
-            setPadding(dp(4), 0, dp(4), 0)
-        }
-    }
-
-    val audio = getSystemService(AUDIO_SERVICE) as AudioManager
-    val stream = AudioManager.STREAM_MUSIC
-    val maxVolume = audio.getStreamMaxVolume(stream)
-    var previousVolume = audio.getStreamVolume(stream)
-        .coerceAtLeast(1)
-
-    val volumeDown = makeButton("− صوت")
-    volumeDown.setOnClickListener {
-        val current = audio.getStreamVolume(stream)
-        audio.setStreamVolume(
-            stream,
-            (current - 1).coerceAtLeast(0),
-            0
-        )
-    }
-
-    val volumeUp = makeButton("+ صوت")
-    volumeUp.setOnClickListener {
-        val current = audio.getStreamVolume(stream)
-        audio.setStreamVolume(
-            stream,
-            (current + 1).coerceAtMost(maxVolume),
-            0
-        )
-    }
-
-    val muteButton = makeButton("كتم")
-    muteButton.setOnClickListener {
-        val current = audio.getStreamVolume(stream)
-
-        if (current > 0) {
-            previousVolume = current
-            audio.setStreamVolume(stream, 0, 0)
-            muteButton.text = "إلغاء الكتم"
-        } else {
-            audio.setStreamVolume(
-                stream,
-                previousVolume.coerceIn(1, maxVolume.coerceAtLeast(1)),
-                0
-            )
-            muteButton.text = "كتم"
-        }
-    }
-
-    val aspect = makeButton("FIT ▾")
-
-    // ننشئ الزر أولاً ثم نربط القائمة لتجنب خطأ aspect
-    aspect.setOnClickListener {
-        val popup = PopupMenu(this, aspect)
-
-        popup.menu.add("FIT")
-        popup.menu.add("FULL")
-        popup.menu.add("ZOOM")
-        popup.menu.add("16:9")
-
-        popup.setOnMenuItemClickListener { item ->
-            val mode = item.title.toString()
-
-            when (mode) {
-                "FIT" -> {
-                    fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                }
-
-                "FULL" -> {
-                    fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                }
-
-                "ZOOM" -> {
-                    fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                }
-
-                "16:9" -> {
-                    fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                }
-            }
-
-            aspect.text = "$mode ▾"
-            true
-        }
-
-private fun openFullscreen() {
-    val original = playerView ?: return
-    if (fullscreenDialog?.isShowing == true) return
-
-    val parent = original.parent as? ViewGroup ?: return
-    val oldOrientation = requestedOrientation
-    val oldIndex = parent.indexOfChild(original)
-    val oldParams = original.layoutParams
-
-    parent.removeView(original)
-
-    val dialog = Dialog(
-        this,
-        android.R.style.Theme_Black_NoTitleBar_Fullscreen
-    )
-
-    // إطار المشغل
-    val frame = FrameLayout(this).apply {
-        setBackgroundColor(Color.BLACK)
-    }
-
-    // الفيديو نفسه
     val fullPlayer = PlayerView(this).apply {
         useController = true
         player = this@MainActivity.player
@@ -983,22 +841,21 @@ private fun openFullscreen() {
         FrameLayout.LayoutParams(-1, -1)
     )
 
-    // أزرار شفافة مدمجة فوق الفيديو من الأسفل
     val controls = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(4), dp(6), dp(4))
-        background = rounded(Color.argb(150, 0, 0, 0), 24)
+        background = rounded(Color.argb(160, 0, 0, 0), 24)
         elevation = dp(8).toFloat()
     }
 
-    fun controlButton(textValue: String): TextView {
+    fun controlButton(value: String): TextView {
         return TextView(this).apply {
-            text = textValue
+            text = value
             textSize = 13f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(dp(9), dp(7), dp(9), dp(7))
+            setPadding(dp(10), dp(7), dp(10), dp(7))
             background = rounded(Color.argb(100, 55, 55, 55), 20)
             isClickable = true
             isFocusable = true
@@ -1031,7 +888,9 @@ private fun openFullscreen() {
         } else {
             audio.setStreamVolume(
                 stream,
-                previousVolume.coerceIn(1, maxVolume.coerceAtLeast(1)),
+                previousVolume.coerceIn(
+                    1, maxVolume.coerceAtLeast(1)
+                ),
                 0
             )
             mute.text = "🔊"
@@ -1051,7 +910,7 @@ private fun openFullscreen() {
     aspect.setOnClickListener {
         val popup = PopupMenu(this, aspect)
 
-        listOf("FIT", "FULL", "ZOOM", "16:9").forEach {
+        listOf("FIT", "FULL", "ZOOM").forEach {
             popup.menu.add(it)
         }
 
@@ -1059,22 +918,20 @@ private fun openFullscreen() {
             when (item.title.toString()) {
                 "FIT" -> {
                     fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        androidx.media3.ui.AspectRatioFrameLayout
+                            .RESIZE_MODE_FIT
                 }
 
                 "FULL" -> {
                     fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        androidx.media3.ui.AspectRatioFrameLayout
+                            .RESIZE_MODE_FILL
                 }
 
                 "ZOOM" -> {
                     fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                }
-
-                "16:9" -> {
-                    fullPlayer.resizeMode =
-                        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        androidx.media3.ui.AspectRatioFrameLayout
+                            .RESIZE_MODE_ZOOM
                 }
             }
 
@@ -1090,7 +947,9 @@ private fun openFullscreen() {
         dialog.dismiss()
     }
 
-    listOf(volumeDown, mute, volumeUp, aspect, close).forEach { btn ->
+    listOf(
+        volumeDown, mute, volumeUp, aspect, close
+    ).forEach { btn ->
         controls.addView(
             btn,
             LinearLayout.LayoutParams(
@@ -1102,7 +961,6 @@ private fun openFullscreen() {
         )
     }
 
-    // مهم: الأزرار موضوعة داخل إطار الفيديو، في الأسفل
     frame.addView(
         controls,
         FrameLayout.LayoutParams(
@@ -1120,7 +978,6 @@ private fun openFullscreen() {
         fullPlayer.player = null
 
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
-        (controls.parent as? ViewGroup)?.removeView(controls)
 
         if (original.parent == null) {
             parent.addView(
@@ -1136,7 +993,8 @@ private fun openFullscreen() {
     }
 
     fullscreenDialog = dialog
-    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    requestedOrientation =
+        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
     dialog.show()
     dialog.window?.setLayout(-1, -1)
@@ -1144,6 +1002,11 @@ private fun openFullscreen() {
         WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
     )
 }
+
+            
+
+                
+            
 
         
 
