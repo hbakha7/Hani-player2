@@ -12,10 +12,9 @@ contents: read
 jobs:
 build:
 runs-on: ubuntu-latest
-
 steps:
-  - name: Checkout project
-    uses: actions/checkout@v4
+- name: Checkout project
+uses: actions/checkout@v4
 
   - name: Set up Java
     uses: actions/setup-java@v4
@@ -29,12 +28,12 @@ steps:
   - name: Install Android SDK packages
     run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-  - name: Build APK
+  - name: Set up Gradle
     uses: gradle/actions/setup-gradle@v4
     with:
       gradle-version: '8.9'
 
-  - name: Assemble APK
+  - name: Build APK
     run: gradle assembleDebug
 
   - name: Upload APK
@@ -42,3 +41,4 @@ steps:
     with:
       name: 103-IPTV-Player-APK
       path: app/build/outputs/apk/debug/app-debug.apk
+      if-no-files-found: error
