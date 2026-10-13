@@ -198,35 +198,46 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
-    private fun askDirect() {
-        val input = EditText(this).apply {
-            hint = "رابط فيديو MP4 أو M3U8"
-            setTextColor(white)
-            setHintTextColor(muted)
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_URI
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("تشغيل رابط مباشر")
-            .setView(input)
-            .setNegativeButton("إلغاء", null)
-            .setPositiveButton("تشغيل") { _, _ ->
-                val link = input.text.toString().trim()
-                if (link.startsWith("http://") ||
-                    link.startsWith("https://")) {
-                    channels.clear()
-                    channels.add(
-                        Channel("فيديو مباشر", link, "مباشر")
-                    )
-                    currentType = "live"
-                    showLibrary()
-                    play(channels.first())
-                } else {
-                    message("الرابط غير صحيح")
-                }
-            }.show()
+    
+private fun askDirect() {
+    val input = EditText(this).apply {
+        hint = "رابط فيديو MP4 أو M3U8"
+        setTextColor(white)
+        setHintTextColor(muted)
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_VARIATION_URI
     }
+
+    AlertDialog.Builder(this)
+        .setTitle("تشغيل رابط مباشر")
+        .setView(input)
+        .setNegativeButton("إلغاء", null)
+        .setPositiveButton("تشغيل") { _, _ ->
+            val link = input.text.toString().trim()
+
+            if (link.startsWith("http://") ||
+                link.startsWith("https://")) {
+
+                channels.clear()
+                channels.add(
+                    Channel("فيديو مباشر", link, "مباشر")
+                )
+
+                currentType = "live"
+                showLibrary()
+
+                playerView?.post {
+                    play(channels.first())
+                    openFullscreen()
+                }
+
+            } else {
+                message("الرابط غير صحيح")
+            }
+        }
+        .show()
+}
+
 
     private fun askXtream() {
         val layout = makeColumn()
