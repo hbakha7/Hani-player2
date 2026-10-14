@@ -599,6 +599,25 @@ playDirectFullscreen(link)
 
 }
 
+private fun playDirectFullscreen(link: String) {
+    val channel = channels.firstOrNull { it.url == link }
+        ?: Channel(
+            name = "فيديو مباشر",
+            url = link,
+            group = "مباشر",
+            type = "live"
+        )
+
+    currentType = "live"
+    showLibrary()
+
+    playerView?.post {
+        play(channel)
+        openFullscreen()
+    }
+}
+
+
 private fun askXtream() {  
     val layout = makeColumn()  
 
