@@ -599,12 +599,7 @@ private fun askDirect() {
                 )
 
                 currentType = "live"
-                showLibrary()
-
-                playerView?.post {
-                    play(channels.first())
-                    openFullscreen()
-                }
+playDirectFullscreen(link)
 
             } else {
                 message("الرابط غير صحيح")
