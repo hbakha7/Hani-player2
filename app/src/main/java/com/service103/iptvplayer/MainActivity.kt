@@ -305,29 +305,65 @@ private fun buildHome() {
 
 
 
+
 private fun showAddLinkForm() {
     val root = makeColumn()
     val scroll = ScrollView(this)
     val form = makeColumn()
 
-    val title = label("إضافة رابط جديد", 22f, accent, true)
-    title.gravity = Gravity.CENTER
-    form.addView(title)
+    form.addView(
+        label("إضافة رابط جديد", 22f, accent, true).apply {
+            gravity = Gravity.CENTER
+        }
+    )
 
-    val nameInput = EditText(this).apply {
-        hint = "اسم الرابط (اختياري)"
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.LTGRAY)
-        inputType = InputType.TYPE_CLASS_TEXT
+    fun inputField(hintText: String, uri: Boolean = false): EditText {
+        return EditText(this).apply {
+            hint = hintText
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            textSize = 16f
+            setSingleLine(true)
+            inputType = if (uri) {
+                InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_VARIATION_URI
+            } else {
+                InputType.TYPE_CLASS_TEXT
+            }
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = rounded(Color.rgb(12, 30, 47), 5)
+        }
     }
 
-    val urlInput = EditText(this).apply {
-        hint = "ضع رابط MP4 أو M3U8 أو M3U هنا"
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.LTGRAY)
-        inputType = InputType.TYPE_CLASS_TEXT or
-            InputType.TYPE_TEXT_VARIATION_URI
+    fun addField(field: EditText) {
+        form.addView(
+            field,
+            LinearLayout.LayoutParams(-1, dp(66)).apply {
+                setMargins(0, dp(5), 0, dp(14))
+            }
+        )
     }
+
+    val nameInput = inputField("Name")
+    val urlInput = inputField(
+        "Url Link (M3U,M3U8,TS,MP4...)",
+        true
+    )
+    val userAgentInput = inputField("User-Agent")
+    val referrerInput = inputField("Referrer")
+    val authInput = inputField("Authentication")
+    val cookieInput = inputField("Cookie (name=joe;app=xpola;id=value ...)")
+    val licenseInput = inputField("License")
+
+    addField(nameInput)
+    addField(urlInput)
+    addField(userAgentInput)
+    addField(referrerInput)
+    addField(authInput)
+    addField(cookieInput)
+    addField(licenseInput)
+
+    form.addView(label("Scheme", 17f, white))
 
     val scheme = Spinner(this).apply {
         adapter = ArrayAdapter(
@@ -335,33 +371,72 @@ private fun showAddLinkForm() {
             android.R.layout.simple_spinner_dropdown_item,
             listOf("الرابط كما هو", "HTTP", "HTTPS")
         )
+        background = rounded(Color.rgb(12, 30, 47), 5)
     }
 
-    val browserCheck = CheckBox(this).apply {
-        text = "فتح الرابط في المتصفح"
-        setTextColor(Color.WHITE)
+    form.addView(
+        scheme,
+        LinearLayout.LayoutParams(-1, dp(54)).apply {
+            setMargins(0, dp(5), 0, dp(12))
+        }
+    )
+
+    fun option(text: String, checked: Boolean = false) =
+        CheckBox(this).apply {
+            this.text = text
+            isChecked = checked
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            buttonTintList =
+                android.content.res.ColorStateList.valueOf(
+                    Color.rgb(190, 235, 240)
+                )
+        }
+
+    val m3uCheck = option("is M3u Link ?")
+    val browserCheck = option("WEB BROWSER")
+    val exoCheck = option("EXO PLAYER", true)
+    val webPlayerCheck = option("WEB PLAYER")
+
+    val row1 = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(
+            m3uCheck,
+            LinearLayout.LayoutParams(0, dp(48), 1f)
+        )
+        addView(
+            browserCheck,
+            LinearLayout.LayoutParams(0, dp(48), 1f)
+        )
     }
 
-    val webPlayerCheck = CheckBox(this).apply {
-        text = "WEB PLAYER"
-        setTextColor(Color.WHITE)
-        isEnabled = false
+    val row2 = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(
+            exoCheck,
+            LinearLayout.LayoutParams(0, dp(48), 1f)
+        )
+        addView(
+            webPlayerCheck,
+            LinearLayout.LayoutParams(0, dp(48), 1f)
+        )
     }
 
-    val m3uCheck = CheckBox(this).apply {
-        text = "هذا رابط قائمة M3U"
-        setTextColor(Color.WHITE)
+    exoCheck.setOnCheckedChangeListener { _, checked ->
+        if (checked) webPlayerCheck.isChecked = false
     }
 
-    form.addView(label("اسم الرابط"))
-    form.addView(nameInput)
-    form.addView(label("رابط التشغيل"))
-    form.addView(urlInput)
-    form.addView(label("نوع الرابط"))
-    form.addView(scheme)
-    form.addView(browserCheck)
-    form.addView(webPlayerCheck)
-    form.addView(m3uCheck)
+    webPlayerCheck.setOnCheckedChangeListener { _, checked ->
+        if (checked) exoCheck.isChecked = false
+    }
+
+    form.addView(row1)
+    form.addView(row2)
+
+    statusView = label("جاهز", 14f, accent)
+    form.addView(statusView)
 
     form.addView(button("تشغيل الرابط") {
         val name = nameInput.text.toString().trim()
@@ -370,7 +445,7 @@ private fun showAddLinkForm() {
         var link = urlInput.text.toString().trim()
 
         if (link.isBlank()) {
-            message("أدخل رابط الفيديو أو قائمة M3U")
+            message("أدخل رابط التشغيل")
             return@button
         }
 
@@ -405,6 +480,22 @@ private fun showAddLinkForm() {
             return@button
         }
 
+        if (webPlayerCheck.isChecked) {
+            message("مشغل WEB PLAYER غير مفعّل حاليًا")
+            return@button
+        }
+
+        // حفظ حقول الرابط لإتاحتها عند فتح النموذج مرة أخرى
+        prefs.edit()
+            .putString("add_name", nameInput.text.toString())
+            .putString("add_url", link)
+            .putString("add_user_agent", userAgentInput.text.toString())
+            .putString("add_referrer", referrerInput.text.toString())
+            .putString("add_auth", authInput.text.toString())
+            .putString("add_cookie", cookieInput.text.toString())
+            .putString("add_license", licenseInput.text.toString())
+            .apply()
+
         if (m3uCheck.isChecked) {
             prefs.edit().putString("last_m3u", link).apply()
             loadM3u(link)
@@ -419,13 +510,13 @@ private fun showAddLinkForm() {
                 )
             )
 
-            currentGroup = "الكل"
             currentType = "live"
+            currentGroup = "الكل"
             showLibrary()
 
             playerView?.post {
-                channels.firstOrNull()?.let {
-                    play(it)
+                channels.firstOrNull()?.let { channel ->
+                    play(channel)
                     openFullscreen()
                 }
             }
@@ -441,9 +532,12 @@ private fun showAddLinkForm() {
         scroll,
         LinearLayout.LayoutParams(-1, 0, 1f)
     )
-
     setContentView(root)
 }
+
+
+                
+                    
 
     
 
