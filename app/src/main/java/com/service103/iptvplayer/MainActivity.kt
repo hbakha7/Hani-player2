@@ -32,7 +32,9 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-
+import android.util.Base64
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 data class Channel(
     val name: String,
     val url: String,
@@ -897,6 +899,77 @@ private fun askDirect() {
     private fun enc(value: String) =
         URLEncoder.encode(value, "UTF-8")
 
+private fun getPlaybackHeaders(): Map<String, String> {
+    val headers = mutableMapOf<String, String>()
+
+    prefs.getString("add_user_agent", "")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { headers["User-Agent"] = it }
+
+    prefs.getString("add_referrer", "")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { headers["Referer"] = it }
+
+    prefs.getString("add_cookie", "")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { headers["Cookie"] = it }
+
+    val auth = prefs.getString("add_auth", "")?.trim().orEmpty()
+
+    if (auth.isNotEmpty()) {
+        headers["Authorization"] = when {
+            auth.startsWith("Basic ", true) ||
+            auth.startsWith("Bearer ", true) -> auth
+
+            auth.contains(":") -> {
+                val encoded = Base64.encodeToString(
+                    auth.toByteArray(Charsets.UTF_8),
+                    Base64.NO_WRAP
+                )
+                "Basic $encoded"
+            }
+
+            else -> auth
+        }
+    }
+
+    return headers
+}
+
+private fun createPlaybackPlayer(): ExoPlayer {
+    val httpFactory = DefaultHttpDataSource.Factory()
+        .setUserAgent(
+            prefs.getString("add_user_agent", "")
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?: "103IPTVPlayer/1.0"
+        )
+        .setDefaultRequestProperties(getPlaybackHeaders())
+        .setConnectTimeoutMs(15000)
+        .setReadTimeoutMs(20000)
+
+    return ExoPlayer.Builder(this)
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(this)
+                .setDataSourceFactory(httpFactory)
+        )
+        .build()
+        .also { exo ->
+            exo.addListener(object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    message(
+                        "تعذر تشغيل المحتوى:\n${error.errorCodeName}"
+                    )
+                }
+            })
+        }
+}
+
+
+        
     private fun showLibrary() {
         val root = makeColumn()
         val scroll = ScrollView(this)
@@ -997,19 +1070,12 @@ private fun askDirect() {
         setContentView(root)
 
         if (player == null) {
-            player = ExoPlayer.Builder(this).build()
-            player?.addListener(object : Player.Listener {
-                override fun onPlayerError(error: PlaybackException) {
-                    message(
-                        "تعذر تشغيل المحتوى.\n" +
-                        error.errorCodeName
-                    )
-                }
-            })
-        }
-        playerView?.player = player
-        renderItems()
-    }
+    player = createPlaybackPlayer()
+}
+playerView?.player = player
+renderItems()
+            
+        
 
     private fun renderItems() {
         val list = listContainer ?: return
@@ -1152,29 +1218,35 @@ private fun askDirect() {
         }
     }
 
-    private fun play(ch: Channel) {
-        try {
-            if (player == null) {
-                player = ExoPlayer.Builder(this).build()
-            }
-            if (playerView == null) {
-                showLibrary()
-            }
-            playerView?.player = player
+    
+private fun play(ch: Channel) {
+    try {
+        // إنشاء مشغّل جديد لضمان تطبيق رؤوس الطلبات الحالية
+        playerView?.player = null
+        player?.release()
+        player = createPlaybackPlayer()
 
-            val item = MediaItem.Builder()
-                .setUri(ch.url)
-                .setMediaId(ch.name)
-                .build()
-
-            player?.setMediaItem(item)
-            player?.prepare()
-            player?.playWhenReady = true
-            setStatus("قيد التشغيل: ${ch.name}")
-        } catch (e: Exception) {
-            message("تعذر بدء التشغيل:\n${e.message}")
+        if (playerView == null) {
+            showLibrary()
         }
+
+        playerView?.player = player
+
+        val item = MediaItem.Builder()
+            .setUri(ch.url)
+            .setMediaId(ch.name)
+            .build()
+
+        player?.setMediaItem(item)
+        player?.prepare()
+        player?.playWhenReady = true
+
+        setStatus("قيد التشغيل: ${ch.name}")
+    } catch (e: Exception) {
+        message("تعذر بدء التشغيل:\n${e.message}")
     }
+}
+
 
 
 
