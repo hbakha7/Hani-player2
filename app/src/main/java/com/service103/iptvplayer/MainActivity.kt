@@ -123,52 +123,271 @@ class MainActivity : AppCompatActivity() {
         setBackgroundColor(bg)
     }
 
-    private fun buildHome() {
-        val root = makeColumn()
-        val scroll = ScrollView(this)
-        val content = makeColumn()
 
-        val logo = label("103", 40f, accent, true)
-        logo.gravity = Gravity.CENTER
-        content.addView(logo)
-
-        val title = label("103 IPTV PLAYER", 24f, white, true)
-        title.gravity = Gravity.CENTER
-        content.addView(title)
-
-        val subtitle = label(
-            "مشغّل قنواتك وأفلامك ومسلسلاتك",
-            14f, muted
-        )
-        subtitle.gravity = Gravity.CENTER
-        content.addView(subtitle)
-
-        content.addView(button("إضافة قائمة M3U / M3U8") {
-            askM3u()
-        })
-
-        content.addView(button("اتصال Xtream Codes") {
-            askXtream()
-        })
-
-        content.addView(button("تشغيل رابط فيديو مباشر") {
-            askDirect()
-        })
-
-        content.addView(button("الروابط والحسابات المحفوظة") {
-            showSaved()
-        })
-
-        statusView = label("جاهز", 14f, accent)
-        content.addView(statusView)
-
-        scroll.addView(content)
-        root.addView(
-            scroll,
-            LinearLayout.LayoutParams(-1, 0, 1f)
-        )
-        setContentView(root)
+private fun buildHome() {
+    val root = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundColor(Color.rgb(8, 20, 35))
     }
+
+    val header = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(18), dp(12), dp(18), dp(12))
+        setBackgroundColor(Color.rgb(15, 42, 67))
+    }
+
+    val back = TextView(this).apply {
+        text = "‹"
+        textSize = 36f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        setPadding(dp(8), 0, dp(18), 0)
+    }
+    header.addView(back)
+
+    val headerTitle = TextView(this).apply {
+        text = "103 Player"
+        textSize = 21f
+        setTextColor(Color.WHITE)
+    }
+    header.addView(headerTitle)
+    root.addView(header)
+
+    val scroll = ScrollView(this)
+    val form = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), dp(14), dp(12), dp(20))
+    }
+
+    fun field(hintText: String, uri: Boolean = false): EditText {
+        return EditText(this).apply {
+            hint = hintText
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            singleLine = true
+            inputType = if (uri) {
+                android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_URI
+            } else {
+                android.text.InputType.TYPE_CLASS_TEXT
+            }
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(10, 29, 47))
+                setStroke(dp(2), Color.rgb(4, 14, 25))
+                cornerRadius = dp(5).toFloat()
+            }
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(72)
+            ).apply {
+                setMargins(0, dp(7), 0, dp(12))
+            }
+        }
+    }
+
+    val nameInput = field("Name")
+    val urlInput = field("Url Link (M3U,M3U8,TS,MP4...)", true)
+    val agentInput = field("User-Agent")
+    val referrerInput = field("Referrer", true)
+    val authInput = field("Authentication")
+    val cookieInput = field("Cookie (name=value; app=value)")
+    val licenseInput = field("License")
+
+    form.addView(nameInput)
+    form.addView(urlInput)
+    form.addView(agentInput)
+    form.addView(referrerInput)
+    form.addView(authInput)
+    form.addView(cookieInput)
+    form.addView(licenseInput)
+
+    val scheme = Spinner(this)
+    val schemeOptions = listOf(
+        "Scheme",
+        "HTTP",
+        "HTTPS",
+        "Auto"
+    )
+    scheme.adapter = ArrayAdapter(
+        this,
+        android.R.layout.simple_spinner_dropdown_item,
+        schemeOptions
+    )
+    scheme.background = GradientDrawable().apply {
+        setColor(Color.rgb(13, 40, 62))
+        setStroke(dp(1), Color.rgb(4, 14, 25))
+        cornerRadius = dp(5).toFloat()
+    }
+    form.addView(
+        scheme,
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(58)
+        ).apply {
+            setMargins(0, dp(4), 0, dp(12))
+        }
+    )
+
+    fun checkOption(textValue: String, checked: Boolean = false) =
+        CheckBox(this).apply {
+            text = textValue
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            buttonTintList =
+                android.content.res.ColorStateList.valueOf(
+                    Color.rgb(170, 225, 230)
+                )
+            isChecked = checked
+        }
+
+    val m3uCheck = checkOption("is M3u Link ?", false)
+    val exoCheck = checkOption("EXO PLAYER", true)
+    val browserCheck = checkOption("WEB BROWSER", false)
+    val webPlayerCheck = checkOption("WEB PLAYER", false)
+
+    fun addCheckRow(first: CheckBox, second: CheckBox) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        row.addView(
+            first,
+            LinearLayout.LayoutParams(0, dp(52), 1f)
+        )
+        row.addView(
+            second,
+            LinearLayout.LayoutParams(0, dp(52), 1f)
+        )
+        form.addView(row)
+    }
+
+    addCheckRow(m3uCheck, browserCheck)
+    addCheckRow(exoCheck, webPlayerCheck)
+
+    // اختيار مشغل واحد فقط
+    exoCheck.setOnCheckedChangeListener { _, checked ->
+        if (checked) {
+            browserCheck.isChecked = false
+            webPlayerCheck.isChecked = false
+        }
+    }
+    browserCheck.setOnCheckedChangeListener { _, checked ->
+        if (checked) {
+            exoCheck.isChecked = false
+            webPlayerCheck.isChecked = false
+        }
+    }
+    webPlayerCheck.setOnCheckedChangeListener { _, checked ->
+        if (checked) {
+            exoCheck.isChecked = false
+            browserCheck.isChecked = false
+        }
+    }
+
+    val playButton = Button(this).apply {
+        text = "تشغيل الرابط"
+        isAllCaps = false
+        textSize = 17f
+        setTextColor(Color.WHITE)
+        background = rounded(Color.rgb(25, 190, 165), 10)
+    }
+
+    form.addView(
+        playButton,
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(54)
+        ).apply {
+            setMargins(0, dp(18), 0, dp(8))
+        }
+    )
+
+    statusView = label("جاهز", 14f, Color.rgb(25, 190, 165))
+    form.addView(statusView)
+
+    playButton.setOnClickListener {
+        val name = nameInput.text.toString().trim()
+            .ifBlank { "فيديو مباشر" }
+        var link = urlInput.text.toString().trim()
+
+        if (link.isBlank()) {
+            message("أدخل رابط الفيديو أو قائمة M3U")
+            return@setOnClickListener
+        }
+
+        when (scheme.selectedItemPosition) {
+            1 -> if (!link.startsWith("http://")) {
+                link = "http://$link"
+            }
+            2 -> if (!link.startsWith("https://")) {
+                link = "https://$link"
+            }
+        }
+
+        if (!link.startsWith("http://") &&
+            !link.startsWith("https://")) {
+            message("يجب أن يبدأ الرابط بـ http:// أو https://")
+            return@setOnClickListener
+        }
+
+        if (browserCheck.isChecked) {
+            try {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(link)
+                )
+                startActivity(intent)
+            } catch (_: Exception) {
+                message("لا يوجد متصفح متاح لفتح الرابط")
+            }
+            return@setOnClickListener
+        }
+
+        if (webPlayerCheck.isChecked) {
+            message("وضع WEB PLAYER يحتاج إلى إضافة مشغل WebView. اختر EXO PLAYER حاليًا.")
+            return@setOnClickListener
+        }
+
+        if (m3uCheck.isChecked) {
+            prefs.edit().putString("last_m3u", link).apply()
+            loadM3u(link)
+        } else {
+            channels.clear()
+            channels.add(
+                Channel(
+                    name = name,
+                    url = link,
+                    group = "مباشر",
+                    type = "live"
+                )
+            )
+            currentType = "live"
+            showLibrary()
+            playerView?.post {
+                channels.firstOrNull()?.let { channel ->
+                    play(channel)
+                    openFullscreen()
+                }
+            }
+        }
+    }
+
+    scroll.addView(form)
+    root.addView(
+        scroll,
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        )
+    )
+
+    setContentView(root)
+}
+
 
     private fun askM3u() {
         val input = EditText(this).apply {
