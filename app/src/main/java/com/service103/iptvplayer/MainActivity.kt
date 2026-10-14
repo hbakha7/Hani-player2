@@ -1075,7 +1075,7 @@ private fun createPlaybackPlayer(): ExoPlayer {
 playerView?.player = player
 renderItems()
             
-        
+    }
 
     private fun renderItems() {
         val list = listContainer ?: return
