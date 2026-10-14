@@ -166,7 +166,7 @@ private fun buildHome() {
             textSize = 17f
             setTextColor(Color.WHITE)
             setHintTextColor(Color.LTGRAY)
-            singleLine = true
+            setSingleLine(true)
             inputType = if (uri) {
                 android.text.InputType.TYPE_CLASS_TEXT or
                     android.text.InputType.TYPE_TEXT_VARIATION_URI
