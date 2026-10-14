@@ -133,159 +133,177 @@ private fun buildHome() {
     val header = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(18), dp(12), dp(18), dp(12))
+        setPadding(dp(12), dp(8), dp(12), dp(8))
         setBackgroundColor(Color.rgb(15, 42, 67))
     }
 
-    val back = TextView(this).apply {
-        text = "‹"
-        textSize = 36f
-        setTextColor(Color.WHITE)
+    val menu = TextView(this).apply {
+        text = "☰"
+        textSize = 28f
         gravity = Gravity.CENTER
-        setPadding(dp(8), 0, dp(18), 0)
+        setTextColor(Color.WHITE)
+        setPadding(dp(8), dp(4), dp(16), dp(4))
     }
-    header.addView(back)
 
-    val headerTitle = TextView(this).apply {
-        text = "103 Player"
-        textSize = 21f
+    val title = TextView(this).apply {
+        text = "103 IPTV Player"
+        textSize = 20f
+        gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
     }
-    header.addView(headerTitle)
+
+    val search = TextView(this).apply {
+        text = "⌕"
+        textSize = 30f
+        gravity = Gravity.CENTER
+        setTextColor(Color.WHITE)
+        setPadding(dp(16), dp(4), dp(8), dp(4))
+    }
+
+    header.addView(menu)
+    header.addView(
+        title,
+        LinearLayout.LayoutParams(0, dp(48), 1f)
+    )
+    header.addView(search)
     root.addView(header)
 
-    val scroll = ScrollView(this)
-    val form = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(12), dp(14), dp(12), dp(20))
+    val content = FrameLayout(this).apply {
+        setBackgroundColor(Color.rgb(8, 25, 42))
     }
 
-    fun field(hintText: String, uri: Boolean = false): EditText {
-        return EditText(this).apply {
-            hint = hintText
-            textSize = 17f
+    val empty = TextView(this).apply {
+        text = "103 IPTV PLAYER"
+        textSize = 24f
+        gravity = Gravity.CENTER
+        setTextColor(Color.rgb(25, 190, 165))
+    }
+
+    content.addView(
+        empty,
+        FrameLayout.LayoutParams(-1, -1)
+    )
+
+    root.addView(
+        content,
+        LinearLayout.LayoutParams(-1, 0, 1f)
+    )
+
+    val navigation = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        setBackgroundColor(Color.rgb(12, 35, 55))
+    }
+
+    fun navItem(symbol: String, caption: String, action: () -> Unit) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(8))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { action() }
+        }
+
+        val icon = TextView(this).apply {
+            text = symbol
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+        }
+
+        val text = TextView(this).apply {
+            text = caption
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+        }
+
+        item.addView(icon)
+        item.addView(text)
+
+        navigation.addView(
+            item,
+            LinearLayout.LayoutParams(0, dp(66), 1f)
+        )
+    }
+
+    navItem("◉", "الرئيسية") {
+        empty.text = "103 IPTV PLAYER"
+    }
+
+    navItem("▶", "الوسائط المحلية") {
+        val intent = android.content.Intent(
+            android.content.Intent.ACTION_GET_CONTENT
+        ).apply {
+            type = "video/*"
+        }
+
+        try {
+            startActivityForResult(intent, 103)
+        } catch (_: Exception) {
+            message("تعذر فتح ملفات الفيديو")
+        }
+    }
+
+    navItem("+", "إضافة") {
+        showAddLinkForm()
+    }
+
+    root.addView(navigation)
+    setContentView(root)
+
+    menu.setOnClickListener {
+        AlertDialog.Builder(this)
+            .setTitle("103 IPTV Player")
+            .setItems(
+                arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")
+            ) { _, which ->
+                when (which) {
+                    0 -> empty.text = "103 IPTV PLAYER"
+                    1 -> showAddLinkForm()
+                    2 -> showSaved()
+                }
+            }
+            .show()
+    }
+
+    search.setOnClickListener {
+        val input = EditText(this).apply {
+            hint = "ابحث عن قناة أو محتوى"
             setTextColor(Color.WHITE)
             setHintTextColor(Color.LTGRAY)
-            setSingleLine(true)
-            inputType = if (uri) {
-                android.text.InputType.TYPE_CLASS_TEXT or
-                    android.text.InputType.TYPE_TEXT_VARIATION_URI
-            } else {
-                android.text.InputType.TYPE_CLASS_TEXT
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("بحث")
+            .setView(input)
+            .setPositiveButton("بحث") { _, _ ->
+                val query = input.text.toString().trim()
+                val found = channels.filter {
+                    it.name.contains(query, ignoreCase = true)
+                }
+
+                if (found.isEmpty()) {
+                    message("لا توجد نتائج مطابقة")
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("نتائج البحث")
+                        .setItems(found.map { it.name }.toTypedArray()) { _, i ->
+                            play(found[i])
+                            openFullscreen()
+                        }
+                        .setNegativeButton("إغلاق", null)
+                        .show()
+                }
             }
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(10, 29, 47))
-                setStroke(dp(2), Color.rgb(4, 14, 25))
-                cornerRadius = dp(5).toFloat()
-            }
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(72)
-            ).apply {
-                setMargins(0, dp(7), 0, dp(12))
-            }
-        }
+            .setNegativeButton("إلغاء", null)
+            .show()
     }
+}
 
-    val nameInput = field("Name")
-    val urlInput = field("Url Link (M3U,M3U8,TS,MP4...)", true)
-    val agentInput = field("User-Agent")
-    val referrerInput = field("Referrer", true)
-    val authInput = field("Authentication")
-    val cookieInput = field("Cookie (name=value; app=value)")
-    val licenseInput = field("License")
 
-    form.addView(nameInput)
-    form.addView(urlInput)
-    form.addView(agentInput)
-    form.addView(referrerInput)
-    form.addView(authInput)
-    form.addView(cookieInput)
-    form.addView(licenseInput)
 
-    val scheme = Spinner(this)
-    val schemeOptions = listOf(
-        "Scheme",
-        "HTTP",
-        "HTTPS",
-        "Auto"
-    )
-    scheme.adapter = ArrayAdapter(
-        this,
-        android.R.layout.simple_spinner_dropdown_item,
-        schemeOptions
-    )
-    scheme.background = GradientDrawable().apply {
-        setColor(Color.rgb(13, 40, 62))
-        setStroke(dp(1), Color.rgb(4, 14, 25))
-        cornerRadius = dp(5).toFloat()
-    }
-    form.addView(
-        scheme,
-        LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(58)
-        ).apply {
-            setMargins(0, dp(4), 0, dp(12))
-        }
-    )
-
-    fun checkOption(textValue: String, checked: Boolean = false) =
-        CheckBox(this).apply {
-            text = textValue
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            buttonTintList =
-                android.content.res.ColorStateList.valueOf(
-                    Color.rgb(170, 225, 230)
-                )
-            isChecked = checked
-        }
-
-    val m3uCheck = checkOption("is M3u Link ?", false)
-    val exoCheck = checkOption("EXO PLAYER", true)
-    val browserCheck = checkOption("WEB BROWSER", false)
-    val webPlayerCheck = checkOption("WEB PLAYER", false)
-
-    fun addCheckRow(first: CheckBox, second: CheckBox) {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        row.addView(
-            first,
-            LinearLayout.LayoutParams(0, dp(52), 1f)
-        )
-        row.addView(
-            second,
-            LinearLayout.LayoutParams(0, dp(52), 1f)
-        )
-        form.addView(row)
-    }
-
-    addCheckRow(m3uCheck, browserCheck)
-    addCheckRow(exoCheck, webPlayerCheck)
-
-    // اختيار مشغل واحد فقط
-    exoCheck.setOnCheckedChangeListener { _, checked ->
-        if (checked) {
-            browserCheck.isChecked = false
-            webPlayerCheck.isChecked = false
-        }
-    }
-    browserCheck.setOnCheckedChangeListener { _, checked ->
-        if (checked) {
-            exoCheck.isChecked = false
-            webPlayerCheck.isChecked = false
-        }
-    }
-    webPlayerCheck.setOnCheckedChangeListener { _, checked ->
-        if (checked) {
-            exoCheck.isChecked = false
-            browserCheck.isChecked = false
-        }
-    }
 
     val playButton = Button(this).apply {
         text = "تشغيل الرابط"
