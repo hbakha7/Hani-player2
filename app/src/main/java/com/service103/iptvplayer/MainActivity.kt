@@ -305,6 +305,146 @@ private fun buildHome() {
 
 
 
+private fun showAddLinkForm() {
+    val root = makeColumn()
+    val scroll = ScrollView(this)
+    val form = makeColumn()
+
+    val title = label("إضافة رابط جديد", 22f, accent, true)
+    title.gravity = Gravity.CENTER
+    form.addView(title)
+
+    val nameInput = EditText(this).apply {
+        hint = "اسم الرابط (اختياري)"
+        setTextColor(Color.WHITE)
+        setHintTextColor(Color.LTGRAY)
+        inputType = InputType.TYPE_CLASS_TEXT
+    }
+
+    val urlInput = EditText(this).apply {
+        hint = "ضع رابط MP4 أو M3U8 أو M3U هنا"
+        setTextColor(Color.WHITE)
+        setHintTextColor(Color.LTGRAY)
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_VARIATION_URI
+    }
+
+    val scheme = Spinner(this).apply {
+        adapter = ArrayAdapter(
+            this@MainActivity,
+            android.R.layout.simple_spinner_dropdown_item,
+            listOf("الرابط كما هو", "HTTP", "HTTPS")
+        )
+    }
+
+    val browserCheck = CheckBox(this).apply {
+        text = "فتح الرابط في المتصفح"
+        setTextColor(Color.WHITE)
+    }
+
+    val webPlayerCheck = CheckBox(this).apply {
+        text = "WEB PLAYER"
+        setTextColor(Color.WHITE)
+        isEnabled = false
+    }
+
+    val m3uCheck = CheckBox(this).apply {
+        text = "هذا رابط قائمة M3U"
+        setTextColor(Color.WHITE)
+    }
+
+    form.addView(label("اسم الرابط"))
+    form.addView(nameInput)
+    form.addView(label("رابط التشغيل"))
+    form.addView(urlInput)
+    form.addView(label("نوع الرابط"))
+    form.addView(scheme)
+    form.addView(browserCheck)
+    form.addView(webPlayerCheck)
+    form.addView(m3uCheck)
+
+    form.addView(button("تشغيل الرابط") {
+        val name = nameInput.text.toString().trim()
+            .ifBlank { "فيديو مباشر" }
+
+        var link = urlInput.text.toString().trim()
+
+        if (link.isBlank()) {
+            message("أدخل رابط الفيديو أو قائمة M3U")
+            return@button
+        }
+
+        when (scheme.selectedItemPosition) {
+            1 -> if (!link.startsWith("http://") &&
+                !link.startsWith("https://")) {
+                link = "http://$link"
+            }
+            2 -> if (!link.startsWith("http://") &&
+                !link.startsWith("https://")) {
+                link = "https://$link"
+            }
+        }
+
+        if (!link.startsWith("http://") &&
+            !link.startsWith("https://")) {
+            message("الرابط غير صحيح")
+            return@button
+        }
+
+        if (browserCheck.isChecked) {
+            try {
+                startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(link)
+                    )
+                )
+            } catch (_: Exception) {
+                message("تعذر فتح الرابط في المتصفح")
+            }
+            return@button
+        }
+
+        if (m3uCheck.isChecked) {
+            prefs.edit().putString("last_m3u", link).apply()
+            loadM3u(link)
+        } else {
+            channels.clear()
+            channels.add(
+                Channel(
+                    name = name,
+                    url = link,
+                    group = "مباشر",
+                    type = "live"
+                )
+            )
+
+            currentGroup = "الكل"
+            currentType = "live"
+            showLibrary()
+
+            playerView?.post {
+                channels.firstOrNull()?.let {
+                    play(it)
+                    openFullscreen()
+                }
+            }
+        }
+    })
+
+    form.addView(button("رجوع للرئيسية") {
+        buildHome()
+    })
+
+    scroll.addView(form)
+    root.addView(
+        scroll,
+        LinearLayout.LayoutParams(-1, 0, 1f)
+    )
+
+    setContentView(root)
+}
+
     
 
 
