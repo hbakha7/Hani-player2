@@ -1360,22 +1360,7 @@ private fun openFullscreen() {
         ViewGroup.LayoutParams(-1, -1)
     )
 
-    dialog.setOnDismissListener {
-        fullPlayer.player = null
-
-        if (original.parent == null) {
-            parent.addView(
-                original,
-                oldIndex.coerceIn(0, parent.childCount),
-                oldParams
-            )
-        }
-
-        original.player = player
-        requestedOrientation = oldOrientation
-        fullscreenDialog = null
-    }
-
+    
     
 fullscreenDialog = dialog
 
