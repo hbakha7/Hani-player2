@@ -1328,7 +1328,49 @@ private fun openFullscreen() {
         isFocusable = true
         contentDescription = "تشغيل أو إيقاف مؤقت"
     }
-    frame.addView(pauseButton, FrameLayout.LayoutParams(dp(80), dp(80), Gravity.CENTER))
+    val rewindButton = TextView(this).apply {
+        text = "↶\\n10"
+        textSize = 19f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+        contentDescription = "رجوع 10 ثوانٍ"
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            val p = player ?: return@setOnClickListener
+            p.seekTo((p.currentPosition - 10_000L).coerceAtLeast(0L))
+        }
+    }
+    val forwardButton = TextView(this).apply {
+        text = "↷\\n10"
+        textSize = 19f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+        contentDescription = "تقديم 10 ثوانٍ"
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            val p = player ?: return@setOnClickListener
+            val d = p.duration
+            val target = p.currentPosition + 10_000L
+            p.seekTo(if (d > 0 && d != C.TIME_UNSET) target.coerceAtMost(d) else target)
+        }
+    }
+    val centerControls = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        setBackgroundColor(Color.TRANSPARENT)
+        addView(rewindButton, LinearLayout.LayoutParams(dp(64), dp(72)))
+        addView(pauseButton, LinearLayout.LayoutParams(dp(80), dp(80)).apply {
+            setMargins(dp(14), 0, dp(14), 0)
+        })
+        addView(forwardButton, LinearLayout.LayoutParams(dp(64), dp(72)))
+    }
+    frame.addView(centerControls, FrameLayout.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT, dp(88), Gravity.CENTER
+    ))
     val bottomPanel = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(12), dp(2), dp(12), dp(4))
@@ -1412,15 +1454,6 @@ private fun openFullscreen() {
             }
         }
     }
-    val pictureMode = textButton("▣", 24f).apply {
-        contentDescription = "تغيير ملاءمة الصورة"
-        setOnClickListener {
-            fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
-                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            }
-        }
-    }
     val audioTracks = textButton("◉", 23f).apply {
         contentDescription = "مسارات الصوت"
         setOnClickListener {
@@ -1453,8 +1486,8 @@ private fun openFullscreen() {
         contentDescription = "إغلاق ملء الشاشة"
         setOnClickListener { dialog.dismiss() }
     }
-    // Match the reference order: settings, display, audio, cast, fit, mini-player, fullscreen.
-    listOf(settings, display, audioTracks, cast, pictureMode, miniPlayer, fullscreen).forEach { btn ->
+    // Each bottom control has a distinct role; avoid two buttons that both change picture fit.
+    listOf(settings, display, mute, cast, audioTracks, miniPlayer, fullscreen).forEach { btn ->
         actionBar.addView(btn, LinearLayout.LayoutParams(dp(40), dp(44)))
     }
     bottomPanel.addView(actionBar)
@@ -1476,7 +1509,7 @@ private fun openFullscreen() {
         controlsVisible = true
         topBar.visibility = View.VISIBLE
         bottomPanel.visibility = View.VISIBLE
-        pauseButton.visibility = View.VISIBLE
+        centerControls.visibility = View.VISIBLE
         handler.removeCallbacks(hideControls)
         handler.postDelayed(hideControls, 4500)
     }
@@ -1484,9 +1517,8 @@ private fun openFullscreen() {
         controlsVisible = false
         topBar.visibility = View.GONE
         bottomPanel.visibility = View.GONE
-        pauseButton.visibility = View.GONE
+        centerControls.visibility = View.GONE
     }
-
     pauseButton.setOnClickListener {
         val p = player ?: return@setOnClickListener
         if (p.isPlaying) p.pause() else p.play()
