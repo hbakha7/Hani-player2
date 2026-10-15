@@ -1391,7 +1391,50 @@ aspect.setOnClickListener {
 
     popup.show()  
 }  
+val quality = controlButton("الجودة ▾")
 
+quality.setOnClickListener {
+    val popup = PopupMenu(this, quality)
+
+    listOf(
+        "تلقائي",
+        "480p",
+        "720p",
+        "1080p"
+    ).forEach {
+        popup.menu.add(it)
+    }
+
+    popup.setOnMenuItemClickListener { item ->
+        val selected = item.title.toString()
+
+        val maxHeight = when (selected) {
+            "480p" -> 480
+            "720p" -> 720
+            "1080p" -> 1080
+            else -> Int.MAX_VALUE
+        }
+
+        val currentPlayer = player
+
+        if (currentPlayer != null) {
+            currentPlayer.trackSelectionParameters =
+                currentPlayer.trackSelectionParameters
+                    .buildUpon()
+                    .setMaxVideoSize(
+                        Int.MAX_VALUE,
+                        maxHeight
+                    )
+                    .build()
+
+            quality.text = "$selected ▾"
+        }
+
+        true
+    }
+
+    popup.show()
+}
 val close = controlButton("✕")  
 close.setOnClickListener {  
     dialog.dismiss()  
