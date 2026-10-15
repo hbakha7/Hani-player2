@@ -129,6 +129,149 @@ private fun makeColumn() = LinearLayout(this).apply {
     setBackgroundColor(bg)  
 }
 
+
+private fun getSavedLinks(): JSONArray {
+    return try {
+        JSONArray(prefs.getString("saved_home_links", "[]") ?: "[]")
+    } catch (_: Exception) {
+        JSONArray()
+    }
+}
+
+private fun saveHomeLink(name: String, url: String, isM3u: Boolean) {
+    val items = getSavedLinks()
+    // Update an existing entry with the same URL instead of creating duplicates.
+    val updated = JSONArray()
+    var replaced = false
+    for (i in 0 until items.length()) {
+        val item = items.optJSONObject(i) ?: continue
+        if (item.optString("url") == url) {
+            if (!replaced) {
+                updated.put(JSONObject().put("name", name).put("url", url).put("m3u", isM3u))
+                replaced = true
+            }
+        } else {
+            updated.put(item)
+        }
+    }
+    if (!replaced) {
+        updated.put(JSONObject().put("name", name).put("url", url).put("m3u", isM3u))
+    }
+    prefs.edit().putString("saved_home_links", updated.toString()).apply()
+}
+
+private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
+    content.removeAllViews()
+    val items = getSavedLinks()
+    if (items.length() == 0) {
+        empty.text = "103 IPTV PLAYER"
+        content.addView(empty, FrameLayout.LayoutParams(-1, -1))
+        return
+    }
+
+    val scroll = ScrollView(this)
+    val list = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+    }
+    for (i in 0 until items.length()) {
+        val item = items.optJSONObject(i) ?: continue
+        val name = item.optString("name", "رابط محفوظ").ifBlank { "رابط محفوظ" }
+        val url = item.optString("url", "")
+        val isM3u = item.optBoolean("m3u", false)
+        if (url.isBlank()) continue
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            background = rounded(Color.WHITE, 10)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (isM3u) {
+                    loadM3u(url)
+                } else {
+                    channels.clear()
+                    channels.add(Channel(name, url, "مباشر", type = "live"))
+                    currentType = "live"
+                    directLinkPlayback = true
+                    val directPlayerView = PlayerView(this@MainActivity).apply {
+                        useController = false
+                        setBackgroundColor(Color.BLACK)
+                        keepScreenOn = true
+                    }
+                    playerView = directPlayerView
+                    val directRoot = FrameLayout(this@MainActivity).apply {
+                        setBackgroundColor(Color.BLACK)
+                        addView(directPlayerView, FrameLayout.LayoutParams(-1, -1))
+                    }
+                    setContentView(directRoot)
+                    directPlayerView.post { play(channels.first()) }
+                }
+            }
+        }
+
+        val playIcon = TextView(this).apply {
+            text = "▶"
+            textSize = 27f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(85, 55, 15))
+        }
+        card.addView(playIcon, LinearLayout.LayoutParams(dp(48), dp(64)))
+
+        val details = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        details.addView(TextView(this@MainActivity).apply {
+            text = name
+            textSize = 16f
+            setTextColor(Color.BLACK)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        details.addView(TextView(this@MainActivity).apply {
+            text = url
+            textSize = 11f
+            setTextColor(Color.GRAY)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        })
+        card.addView(details, LinearLayout.LayoutParams(0, dp(64), 1f))
+        card.addView(TextView(this).apply {
+            text = if (isM3u) "M3U" else url.substringAfterLast('.', "").uppercase().take(4).ifBlank { "TS" }
+            textSize = 11f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(7), dp(5), dp(7), dp(5))
+            background = rounded(Color.BLACK, 5)
+        })
+        list.addView(card, LinearLayout.LayoutParams(-1, dp(82)).apply {
+            setMargins(0, 0, 0, dp(10))
+        })
+        card.setOnLongClickListener {
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(name)
+                .setItems(arrayOf("تشغيل", "حذف من الرئيسية")) { _, choice ->
+                    if (choice == 0) card.performClick() else {
+                        val current = getSavedLinks()
+                        val kept = JSONArray()
+                        for (j in 0 until current.length()) {
+                            val saved = current.optJSONObject(j) ?: continue
+                            if (saved.optString("url") != url) kept.put(saved)
+                        }
+                        prefs.edit().putString("saved_home_links", kept.toString()).apply()
+                        renderSavedHomeLinks(content, empty)
+                    }
+                }.show()
+            true
+        }
+    }
+    scroll.addView(list)
+    content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+}
+
 private fun buildHome() {
 val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
@@ -184,10 +327,7 @@ val empty = TextView(this).apply {
     setTextColor(Color.rgb(25, 190, 165))  
 }  
 
-content.addView(  
-    empty,  
-    FrameLayout.LayoutParams(-1, -1)  
-)  
+renderSavedHomeLinks(content, empty)  
 
 root.addView(  
     content,  
@@ -233,8 +373,8 @@ fun navItem(symbol: String, caption: String, action: () -> Unit) {
     )  
 }  
 
-navItem("◉", "الرئيسية") {  
-    empty.text = "103 IPTV PLAYER"  
+navItem("◉", "الرئيسية") {
+    renderSavedHomeLinks(content, empty)
 }  
 
 navItem("▶", "الوسائط المحلية") {  
@@ -265,7 +405,7 @@ menu.setOnClickListener {
             arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")  
         ) { _, which ->  
             when (which) {  
-                0 -> empty.text = "103 IPTV PLAYER"  
+                0 -> renderSavedHomeLinks(content, empty)  
                 1 -> showAddLinkForm()  
                 2 -> showSaved()  
             }  
@@ -441,8 +581,12 @@ statusView = label("جاهز", 14f, accent)
 form.addView(statusView)  
 
 form.addView(button("تشغيل الرابط") {  
-    val name = nameInput.text.toString().trim()  
-        .ifBlank { "فيديو مباشر" }  
+    val name = nameInput.text.toString().trim()
+    if (name.isBlank()) {
+        message("أدخل اسمًا للرابط حتى يظهر في الرئيسية")
+        nameInput.requestFocus()
+        return@button
+    }
 
     var link = urlInput.text.toString().trim()  
 
@@ -467,6 +611,11 @@ form.addView(button("تشغيل الرابط") {
         message("الرابط غير صحيح")  
         return@button  
     }  
+
+    // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
+    if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
+        saveHomeLink(name, link, m3uCheck.isChecked)
+    }
 
     if (browserCheck.isChecked) {  
         try {  
