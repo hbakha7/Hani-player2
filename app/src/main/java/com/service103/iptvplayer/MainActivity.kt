@@ -66,6 +66,7 @@ private var currentHost = ""
 private var currentUser = ""  
 private var currentPass = ""  
 private var fullscreenDialog: Dialog? = null  
+private var directLinkPlayback = false
 private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
@@ -511,16 +512,28 @@ form.addView(button("تشغيل الرابط") {
             )  
         )  
 
-        currentType = "live"  
-        currentGroup = "الكل"  
-        showLibrary()  
+        currentType = "live"
+        currentGroup = "الكل"
 
-        playerView?.post {  
-            channels.firstOrNull()?.let { channel ->  
-                play(channel)  
-                openFullscreen()  
-            }  
-        }  
+        // تجاوز صفحة المكتبة تمامًا: افتح المشغل مباشرة بعد الضغط على "تشغيل الرابط".
+        directLinkPlayback = true
+        val directPlayerView = PlayerView(this).apply {
+            useController = false
+            setBackgroundColor(Color.BLACK)
+            keepScreenOn = true
+        }
+        playerView = directPlayerView
+        val directRoot = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(directPlayerView, FrameLayout.LayoutParams(-1, -1))
+        }
+        setContentView(directRoot)
+
+        playerView?.post {
+            channels.firstOrNull()?.let { channel ->
+                play(channel)
+            }
+        }
     }  
 })  
 
@@ -1516,6 +1529,16 @@ private fun openFullscreen() {
         handler.removeCallbacks(hideControls)
         fullPlayer.player = null
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
+        if (directLinkPlayback) {
+            directLinkPlayback = false
+            original.player = null
+            playerView = null
+            requestedOrientation = oldOrientation
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            fullscreenDialog = null
+            buildHome()
+            return@setOnDismissListener
+        }
         if (original.parent == null) parent.addView(original, oldIndex.coerceIn(0, parent.childCount), oldParams)
         original.player = player
         original.useController = true
