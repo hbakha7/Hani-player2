@@ -10,6 +10,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -1243,7 +1245,11 @@ if (playerView == null) {
     player?.prepare()  
     player?.playWhenReady = true  
 
-    setStatus("قيد التشغيل: ${ch.name}")  
+    setStatus("قيد التشغيل: ${ch.name}")
+    // افتح البث المباشر بالعرض وملء الشاشة مباشرة.
+    if (ch.type == "live") {
+        playerView?.post { openFullscreen() }
+    }
 } catch (e: Exception) {  
     message("تعذر بدء التشغيل:\n${e.message}")  
 }
@@ -1251,200 +1257,249 @@ if (playerView == null) {
 }
 
 private fun openFullscreen() {
-val original = playerView ?: return
-if (fullscreenDialog?.isShowing == true) return
+    val original = playerView ?: return
+    if (fullscreenDialog?.isShowing == true) return
 
-val parent = original.parent as? ViewGroup ?: return  
-val oldOrientation = requestedOrientation  
-val oldIndex = parent.indexOfChild(original)  
-val oldParams = original.layoutParams  
+    val parent = original.parent as? ViewGroup ?: return
+    val oldOrientation = requestedOrientation
+    val oldIndex = parent.indexOfChild(original)
+    val oldParams = original.layoutParams
+    parent.removeView(original)
 
-parent.removeView(original)  
+    val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
-val dialog = Dialog(  
-    this,  
-    android.R.style.Theme_Black_NoTitleBar_Fullscreen  
-)  
+    // الفيديو نفسه فقط؛ كل عناصر التحكم أدناه مرسومة فوقه بتصميم مستقل.
+    val fullPlayer = PlayerView(this).apply {
+        useController = false
+        player = this@MainActivity.player
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        keepScreenOn = true
+        setShutterBackgroundColor(Color.BLACK)
+        setBackgroundColor(Color.BLACK)
+    }
+    frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
 
-val frame = FrameLayout(this).apply {  
-    setBackgroundColor(Color.BLACK)  
-}  
+    val handler = Handler(Looper.getMainLooper())
+    var controlsVisible = true
+    val overlay = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb(125, 0, 0, 0), Color.TRANSPARENT,
+                Color.TRANSPARENT, Color.argb(175, 0, 0, 0))
+        )
+    }
+    frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
 
-val fullPlayer = PlayerView(this).apply {  
-    useController = true  
-    player = this@MainActivity.player  
-    resizeMode =  
-        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT  
-    keepScreenOn = true  
-    setShutterBackgroundColor(Color.BLACK)  
-}  
+    fun textButton(symbol: String, size: Float = 25f): TextView = TextView(this).apply {
+        text = symbol
+        textSize = size
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        setPadding(dp(9), dp(4), dp(9), dp(4))
+        isClickable = true
+        isFocusable = true
+    }
 
-frame.addView(  
-    fullPlayer,  
-    FrameLayout.LayoutParams(-1, -1)  
-)  
+    // الشريط العلوي: رجوع واسم المحتوى.
+    val topBar = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    val back = textButton("‹", 42f)
+    back.contentDescription = "رجوع"
+    back.setOnClickListener { dialog.dismiss() }
+    topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
+    val channelTitle = TextView(this).apply {
+        text = player?.currentMediaItem?.mediaId.orEmpty()
+        setTextColor(Color.WHITE)
+        textSize = 15f
+        maxLines = 1
+        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+    }
+    topBar.addView(channelTitle, LinearLayout.LayoutParams(0, dp(48), 1f))
+    overlay.addView(topBar)
 
-val controls = LinearLayout(this).apply {  
-    orientation = LinearLayout.HORIZONTAL  
-    gravity = Gravity.CENTER  
-    setPadding(dp(6), dp(4), dp(6), dp(4))  
-    background = rounded(Color.argb(160, 0, 0, 0), 24)  
-    elevation = dp(8).toFloat()  
-}  
+    // مساحة مرنة تضع زر التشغيل/الإيقاف في منتصف الصورة تمامًا.
+    val middle = FrameLayout(this)
+    overlay.addView(middle, LinearLayout.LayoutParams(-1, 0, 1f))
+    val pauseButton = TextView(this).apply {
+        textSize = 29f
+        text = if (player?.isPlaying == true) "Ⅱ" else "▶"
+        setTextColor(Color.rgb(35, 35, 35))
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.WHITE)
+            setStroke(dp(5), Color.RED)
+        }
+        elevation = dp(5).toFloat()
+        isClickable = true
+        isFocusable = true
+        contentDescription = "تشغيل أو إيقاف مؤقت"
+    }
+    middle.addView(pauseButton, FrameLayout.LayoutParams(dp(76), dp(76), Gravity.CENTER))
+    pauseButton.setOnClickListener {
+        val p = player ?: return@setOnClickListener
+        if (p.isPlaying) p.pause() else p.play()
+        pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
+    }
 
-fun controlButton(value: String): TextView {  
-    return TextView(this).apply {  
-        text = value  
-        textSize = 13f  
-        setTextColor(Color.WHITE)  
-        gravity = Gravity.CENTER  
-        setPadding(dp(10), dp(7), dp(10), dp(7))  
-        background = rounded(Color.argb(100, 55, 55, 55), 20)  
-        isClickable = true  
-        isFocusable = true  
-    }  
-}  
+    val bottom = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(4), 0, dp(2))
+    }
+    overlay.addView(bottom)
 
-val audio = getSystemService(AUDIO_SERVICE) as AudioManager  
-val stream = AudioManager.STREAM_MUSIC  
-val maxVolume = audio.getStreamMaxVolume(stream)  
-var previousVolume =  
-    audio.getStreamVolume(stream).coerceAtLeast(1)  
+    val seek = SeekBar(this).apply {
+        max = 1000
+        progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(100, 255, 255, 255))
+        setPadding(0, 0, 0, 0)
+    }
+    bottom.addView(seek, LinearLayout.LayoutParams(-1, dp(22)))
 
-val volumeDown = controlButton("−")  
-volumeDown.setOnClickListener {  
-    audio.adjustStreamVolume(  
-        stream,  
-        AudioManager.ADJUST_LOWER,  
-        0  
-    )  
-}  
+    fun timeText(ms: Long): String {
+        if (ms < 0 || ms == C.TIME_UNSET) return "00:00"
+        val total = ms / 1000
+        return String.format(java.util.Locale.US, "%02d:%02d", total / 60, total % 60)
+    }
+    val actionBar = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    val elapsed = TextView(this).apply {
+        text = "00:00"
+        textSize = 14f
+        setTextColor(Color.WHITE)
+        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+    }
+    val separator = TextView(this).apply {
+        text = "  ·  "
+        textSize = 14f
+        setTextColor(Color.LTGRAY)
+    }
+    val duration = TextView(this).apply {
+        text = "00:00"
+        textSize = 14f
+        setTextColor(Color.LTGRAY)
+        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+    }
+    actionBar.addView(elapsed)
+    actionBar.addView(separator)
+    actionBar.addView(duration, LinearLayout.LayoutParams(0, dp(42), 1f))
 
-val mute = controlButton("🔊")  
-mute.setOnClickListener {  
-    val current = audio.getStreamVolume(stream)  
+    val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+    val stream = AudioManager.STREAM_MUSIC
+    var previousVolume = audio.getStreamVolume(stream).coerceAtLeast(1)
 
-    if (current > 0) {  
-        previousVolume = current  
-        audio.setStreamVolume(stream, 0, 0)  
-        mute.text = "🔇"  
-    } else {  
-        audio.setStreamVolume(  
-            stream,  
-            previousVolume.coerceIn(  
-                1, maxVolume.coerceAtLeast(1)  
-            ),  
-            0  
-        )  
-        mute.text = "🔊"  
-    }  
-}  
+    val settings = textButton("⚙", 25f)
+    settings.contentDescription = "إعدادات العرض"
+    settings.setOnClickListener {
+        val popup = PopupMenu(this, settings)
+        listOf("ملاءمة الشاشة", "ملء الصورة", "تكبير الصورة", "معلومات البث").forEach { popup.menu.add(it) }
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title.toString()) {
+                "ملاءمة الشاشة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                "ملء الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                "تكبير الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                "معلومات البث" -> message("${player?.currentMediaItem?.mediaId.orEmpty()}\n${player?.videoFormat?.width ?: 0} × ${player?.videoFormat?.height ?: 0}")
+            }
+            true
+        }
+        popup.show()
+    }
+    val mute = textButton("◖", 25f)
+    mute.contentDescription = "كتم الصوت"
+    mute.setOnClickListener {
+        val current = audio.getStreamVolume(stream)
+        if (current > 0) {
+            previousVolume = current
+            audio.setStreamVolume(stream, 0, 0)
+            mute.text = "×"
+        } else {
+            audio.setStreamVolume(stream, previousVolume.coerceAtLeast(1), 0)
+            mute.text = "◖"
+        }
+    }
+    val fit = textButton("□", 25f)
+    fit.contentDescription = "تغيير حجم الصورة"
+    fit.setOnClickListener {
+        fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+    }
+    val exit = textButton("⛶", 26f)
+    exit.contentDescription = "إغلاق ملء الشاشة"
+    exit.setOnClickListener { dialog.dismiss() }
+    listOf(settings, mute, fit, exit).forEach { btn ->
+        actionBar.addView(btn, LinearLayout.LayoutParams(dp(43), dp(42)))
+    }
+    bottom.addView(actionBar)
 
-val volumeUp = controlButton("+")  
-volumeUp.setOnClickListener {  
-    audio.adjustStreamVolume(  
-        stream,  
-        AudioManager.ADJUST_RAISE,  
-        0  
-    )  
-}  
+    seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+            if (fromUser) {
+                val d = player?.duration ?: C.TIME_UNSET
+                if (d > 0 && d != C.TIME_UNSET) player?.seekTo(d * progress / 1000L)
+            }
+        }
+        override fun onStartTrackingTouch(bar: SeekBar?) {}
+        override fun onStopTrackingTouch(bar: SeekBar?) {}
+    })
 
-val aspect = controlButton("FIT ▾")  
-aspect.setOnClickListener {  
-    val popup = PopupMenu(this, aspect)  
+    val updateProgress = object : Runnable {
+        override fun run() {
+            if (dialog.isShowing) {
+                val p = player
+                if (p != null) {
+                    val d = p.duration
+                    elapsed.text = timeText(p.currentPosition)
+                    duration.text = timeText(d)
+                    if (d > 0 && d != C.TIME_UNSET && !seek.isPressed) {
+                        seek.progress = ((p.currentPosition * 1000L) / d).toInt().coerceIn(0, 1000)
+                    } else if (d <= 0 || d == C.TIME_UNSET) {
+                        seek.progress = 0
+                    }
+                    pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
+                }
+                handler.postDelayed(this, 500)
+            }
+        }
+    }
 
-    listOf("FIT", "FULL", "ZOOM").forEach {  
-        popup.menu.add(it)  
-    }  
+    fun setControlsVisible(visible: Boolean) {
+        controlsVisible = visible
+        overlay.visibility = if (visible) View.VISIBLE else View.GONE
+    }
+    fullPlayer.setOnClickListener { setControlsVisible(!controlsVisible) }
+    middle.setOnClickListener { setControlsVisible(!controlsVisible) }
+    overlay.setOnClickListener { /* منع لمس الخلفية من إيقاف البث */ }
 
-    popup.setOnMenuItemClickListener { item ->  
-        when (item.title.toString()) {  
-            "FIT" -> {  
-                fullPlayer.resizeMode =  
-                    androidx.media3.ui.AspectRatioFrameLayout  
-                        .RESIZE_MODE_FIT  
-            }  
+    dialog.setContentView(frame)
+    dialog.setOnDismissListener {
+        handler.removeCallbacks(updateProgress)
+        fullPlayer.player = null
+        (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
+        if (original.parent == null) {
+            parent.addView(original, oldIndex.coerceIn(0, parent.childCount), oldParams)
+        }
+        original.player = player
+        original.useController = true
+        requestedOrientation = oldOrientation
+        fullscreenDialog = null
+    }
 
-            "FULL" -> {  
-                fullPlayer.resizeMode =  
-                    androidx.media3.ui.AspectRatioFrameLayout  
-                        .RESIZE_MODE_FILL  
-            }  
-
-            "ZOOM" -> {  
-                fullPlayer.resizeMode =  
-                    androidx.media3.ui.AspectRatioFrameLayout  
-                        .RESIZE_MODE_ZOOM  
-            }  
-        }  
-
-        aspect.text = "${item.title} ▾"  
-        true  
-    }  
-
-    popup.show()  
-}  
-
-val close = controlButton("✕")  
-close.setOnClickListener {  
-    dialog.dismiss()  
-}  
-
-listOf(  
-    volumeDown, mute, volumeUp, aspect, close  
-).forEach { btn ->  
-    controls.addView(  
-        btn,  
-        LinearLayout.LayoutParams(  
-            ViewGroup.LayoutParams.WRAP_CONTENT,  
-            dp(40)  
-        ).apply {  
-            setMargins(dp(2), 0, dp(2), 0)  
-        }  
-    )  
-}  
-
-frame.addView(  
-    controls,  
-    FrameLayout.LayoutParams(  
-        ViewGroup.LayoutParams.WRAP_CONTENT,  
-        ViewGroup.LayoutParams.WRAP_CONTENT,  
-        Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL  
-    ).apply {  
-        setMargins(dp(4), dp(4), dp(4), dp(18))  
-    }  
-)  
-
-dialog.setContentView(frame)  
-
-dialog.setOnDismissListener {  
-    fullPlayer.player = null  
-
-    (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)  
-
-    if (original.parent == null) {  
-        parent.addView(  
-            original,  
-            oldIndex.coerceIn(0, parent.childCount),  
-            oldParams  
-        )  
-    }  
-
-    original.player = player  
-    requestedOrientation = oldOrientation  
-    fullscreenDialog = null  
-}  
-
-fullscreenDialog = dialog  
-requestedOrientation =  
-    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE  
-
-dialog.show()  
-dialog.window?.setLayout(-1, -1)  
-dialog.window?.addFlags(  
-    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  
-)
-
+    fullscreenDialog = dialog
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    dialog.show()
+    dialog.window?.setLayout(-1, -1)
+    dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    handler.post(updateProgress)
 }
 
 private fun showVolume() {  
