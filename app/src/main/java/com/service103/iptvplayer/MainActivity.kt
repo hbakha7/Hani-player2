@@ -1263,6 +1263,7 @@ if (playerView == null) {
 }
 
 
+
 private fun openFullscreen() {
     val original = playerView ?: return
     if (fullscreenDialog?.isShowing == true) return
@@ -1273,33 +1274,31 @@ private fun openFullscreen() {
     val oldParams = original.layoutParams
 
     parent.removeView(original)
+    original.player = null
 
     val dialog = Dialog(
         this,
         android.R.style.Theme_Black_NoTitleBar_Fullscreen
     )
 
-    
-val fullPlayer = layoutInflater.inflate(
-    R.layout.player_host,
-    null,
-    false
-) as PlayerView
+    val fullPlayer = layoutInflater.inflate(
+        R.layout.player_host,
+        null,
+        false
+    ) as PlayerView
 
-fullPlayer.apply {
-    useController = true
-    controllerAutoShow = true
-    controllerHideOnTouch = true
-    controllerShowTimeoutMs = 3000
-
-    resizeMode =
-        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-
-    keepScreenOn = true
-    setShutterBackgroundColor(Color.BLACK)
-    setBackgroundColor(Color.BLACK)
-}
-
+    fullPlayer.apply {
+        useController = true
+        controllerAutoShow = true
+        controllerHideOnTouch = true
+        controllerShowTimeoutMs = 3000
+        resizeMode =
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        keepScreenOn = true
+        setShutterBackgroundColor(Color.BLACK)
+        setBackgroundColor(Color.BLACK)
+        player = this@MainActivity.player
+    }
 
     fullPlayer.findViewById<View>(R.id.quality_button)
         ?.setOnClickListener { view ->
@@ -1388,6 +1387,7 @@ fullPlayer.apply {
     )
 }
 
+                
             
         
 
