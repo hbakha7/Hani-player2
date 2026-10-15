@@ -1298,46 +1298,19 @@ private fun openFullscreen() {
     val topBar = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        layoutDirection = View.LAYOUT_DIRECTION_LTR
         setPadding(dp(8), dp(2), dp(8), dp(2))
         background = android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(Color.argb(155, 0, 0, 0), Color.TRANSPARENT)
         )
     }
-    val back = textButton("‹", 42f).apply {
+    val back = textButton("←", 34f).apply {
         contentDescription = "رجوع"
         setOnClickListener { dialog.dismiss() }
     }
     topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
-    val title = TextView(this).apply {
-        text = "فيديو مباشر"
-        setTextColor(Color.WHITE)
-        textSize = 16f
-        maxLines = 1
-        gravity = Gravity.CENTER_VERTICAL or Gravity.END
-        layoutDirection = View.LAYOUT_DIRECTION_RTL
-        setShadowLayer(3f, 1f, 1f, Color.BLACK)
-    }
-    topBar.addView(title, LinearLayout.LayoutParams(0, dp(48), 1f))
-    val liveMark = textButton("⋮", 25f).apply {
-        contentDescription = "خيارات المشغل"
-        setOnClickListener {
-            val popup = PopupMenu(this@MainActivity, this)
-            listOf("معلومات البث", "ملاءمة الشاشة", "ملء الصورة", "تكبير الصورة").forEach { popup.menu.add(it) }
-            popup.setOnMenuItemClickListener { item ->
-                when (item.title.toString()) {
-                    "معلومات البث" -> message("${player?.currentMediaItem?.mediaId.orEmpty()}\n${player?.videoFormat?.width ?: 0} × ${player?.videoFormat?.height ?: 0}")
-                    "ملاءمة الشاشة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    "ملء الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                    "تكبير الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                }
-                true
-            }
-            popup.show()
-        }
-    }
-    topBar.addView(liveMark, LinearLayout.LayoutParams(dp(44), dp(48)))
+    // Keep the rest of the top edge clear, like the reference player.
+    topBar.addView(View(this), LinearLayout.LayoutParams(0, dp(48), 1f))
     frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(52), Gravity.TOP))
 
     val pauseButton = TextView(this).apply {
@@ -1448,12 +1421,41 @@ private fun openFullscreen() {
             }
         }
     }
+    val audioTracks = textButton("◉", 23f).apply {
+        contentDescription = "مسارات الصوت"
+        setOnClickListener {
+            message("مسارات الصوت المتاحة تُحدد حسب مصدر البث.")
+        }
+    }
+    val cast = textButton("⌁", 27f).apply {
+        contentDescription = "البث إلى شاشة أخرى"
+        setOnClickListener {
+            message("لإضافة البث إلى Chromecast أو شاشة خارجية، يلزم ربط مكتبة Google Cast بالتطبيق.")
+        }
+    }
+    val display = textButton("▱", 25f).apply {
+        contentDescription = "وضع العرض"
+        setOnClickListener {
+            fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+        }
+    }
+    val miniPlayer = textButton("▢", 25f).apply {
+        contentDescription = "مشغل مصغر"
+        setOnClickListener {
+            message("وضع الصورة داخل الصورة يحتاج تفعيل Picture-in-Picture في إعدادات AndroidManifest أيضًا.")
+        }
+    }
     val fullscreen = textButton("⛶", 28f).apply {
         contentDescription = "إغلاق ملء الشاشة"
         setOnClickListener { dialog.dismiss() }
     }
-    listOf(settings, mute, pictureMode, fullscreen).forEach { btn ->
-        actionBar.addView(btn, LinearLayout.LayoutParams(dp(43), dp(44)))
+    // Match the reference order: settings, display, audio, cast, fit, mini-player, fullscreen.
+    listOf(settings, display, audioTracks, cast, pictureMode, miniPlayer, fullscreen).forEach { btn ->
+        actionBar.addView(btn, LinearLayout.LayoutParams(dp(40), dp(44)))
     }
     bottomPanel.addView(actionBar)
     frame.addView(bottomPanel, FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
@@ -1533,11 +1535,6 @@ private fun openFullscreen() {
     dialog.show()
     dialog.window?.setLayout(-1, -1)
     dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-        dialog.window?.attributes = dialog.window?.attributes?.apply {
-            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
-    }
     dialog.window?.decorView?.systemUiVisibility = (
         View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             or View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -1546,16 +1543,6 @@ private fun openFullscreen() {
             or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
     )
-    dialog.window?.decorView?.setOnSystemUiVisibilityChangeListener {
-        dialog.window?.decorView?.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-        )
-    }
     handler.post(updateProgress)
     handler.postDelayed(hideControls, 4500)
 }
