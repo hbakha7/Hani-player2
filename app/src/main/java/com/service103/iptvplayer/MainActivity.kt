@@ -1379,6 +1379,22 @@ private fun openFullscreen() {
     
 fullscreenDialog = dialog
 
+    dialog.setOnDismissListener {
+        fullPlayer.player = null
+
+        if (original.parent == null) {
+            parent.addView(
+                original,
+                oldIndex.coerceIn(0, parent.childCount),
+                oldParams
+            )
+        }
+
+        original.player = player
+        requestedOrientation = oldOrientation
+        fullscreenDialog = null
+    }
+
     dialog.show()
 
     dialog.window?.apply {
