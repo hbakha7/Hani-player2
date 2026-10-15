@@ -1415,9 +1415,6 @@ fullscreenDialog = dialog
         ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 }
 
-private fun showVolume() {
-                
-            
         
 
 
