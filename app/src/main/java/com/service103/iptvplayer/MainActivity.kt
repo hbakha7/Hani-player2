@@ -1298,6 +1298,7 @@ private fun openFullscreen() {
     val topBar = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        layoutDirection = View.LAYOUT_DIRECTION_LTR
         setPadding(dp(8), dp(2), dp(8), dp(2))
         background = android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
@@ -1310,11 +1311,12 @@ private fun openFullscreen() {
     }
     topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
     val title = TextView(this).apply {
-        text = player?.currentMediaItem?.mediaId.orEmpty()
+        text = "فيديو مباشر"
         setTextColor(Color.WHITE)
-        textSize = 15f
+        textSize = 16f
         maxLines = 1
-        gravity = Gravity.CENTER_VERTICAL
+        gravity = Gravity.CENTER_VERTICAL or Gravity.END
+        layoutDirection = View.LAYOUT_DIRECTION_RTL
         setShadowLayer(3f, 1f, 1f, Color.BLACK)
     }
     topBar.addView(title, LinearLayout.LayoutParams(0, dp(48), 1f))
@@ -1531,6 +1533,11 @@ private fun openFullscreen() {
     dialog.show()
     dialog.window?.setLayout(-1, -1)
     dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        dialog.window?.attributes = dialog.window?.attributes?.apply {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+    }
     dialog.window?.decorView?.systemUiVisibility = (
         View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             or View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -1539,6 +1546,16 @@ private fun openFullscreen() {
             or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
     )
+    dialog.window?.decorView?.setOnSystemUiVisibilityChangeListener {
+        dialog.window?.decorView?.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        )
+    }
     handler.post(updateProgress)
     handler.postDelayed(hideControls, 4500)
 }
