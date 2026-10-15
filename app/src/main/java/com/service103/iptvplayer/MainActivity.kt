@@ -1288,89 +1288,54 @@ private fun openFullscreen() {
         textSize = size
         setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
-        setPadding(dp(7), dp(3), dp(7), dp(3))
+        setPadding(dp(4), dp(2), dp(4), dp(2))
         setShadowLayer(3f, 1f, 1f, Color.BLACK)
         isClickable = true
         isFocusable = true
     }
 
-    // Separate top, center, and bottom layers match the reference layout more closely.
     val topBar = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(8), dp(2), dp(8), dp(2))
-        background = android.graphics.drawable.GradientDrawable(
-            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.argb(155, 0, 0, 0), Color.TRANSPARENT)
-        )
     }
-    val back = textButton("←", 34f).apply {
+    val back = textButton("‹", 36f).apply {
         contentDescription = "رجوع"
         setOnClickListener { dialog.dismiss() }
     }
     topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
-    // Keep the rest of the top edge clear, like the reference player.
     topBar.addView(View(this), LinearLayout.LayoutParams(0, dp(48), 1f))
-    frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(52), Gravity.TOP))
+    frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(48), Gravity.TOP))
 
-    val pauseButton = TextView(this).apply {
-        textSize = 29f
-        text = if (player?.isPlaying == true) "Ⅱ" else "▶"
-        setTextColor(Color.rgb(35, 35, 35))
-        gravity = Gravity.CENTER
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.WHITE)
-            setStroke(dp(5), Color.RED)
-        }
-        elevation = dp(5).toFloat()
-        isClickable = true
-        isFocusable = true
+    val pauseButton = textButton("Ⅱ", 31f).apply {
         contentDescription = "تشغيل أو إيقاف مؤقت"
+        setOnClickListener {
+            val p = player ?: return@setOnClickListener
+            if (p.isPlaying) p.pause() else p.play()
+            text = if (p.isPlaying) "Ⅱ" else "▶"
+            showControls()
+        }
     }
-    val rewindButton = TextView(this).apply {
-        text = "↶\\n10"
-        textSize = 19f
-        setTextColor(Color.WHITE)
-        gravity = Gravity.CENTER
-        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+
+    val rewindButton = textButton("↶\n10", 15f).apply {
         contentDescription = "رجوع 10 ثوانٍ"
-        isClickable = true
-        isFocusable = true
         setOnClickListener {
             val p = player ?: return@setOnClickListener
             p.seekTo((p.currentPosition - 10_000L).coerceAtLeast(0L))
+            showControls()
         }
     }
-    val forwardButton = TextView(this).apply {
-        text = "↷\\n10"
-        textSize = 19f
-        setTextColor(Color.WHITE)
-        gravity = Gravity.CENTER
-        setShadowLayer(3f, 1f, 1f, Color.BLACK)
+    val forwardButton = textButton("↷\n10", 15f).apply {
         contentDescription = "تقديم 10 ثوانٍ"
-        isClickable = true
-        isFocusable = true
         setOnClickListener {
             val p = player ?: return@setOnClickListener
             val d = p.duration
             val target = p.currentPosition + 10_000L
             p.seekTo(if (d > 0 && d != C.TIME_UNSET) target.coerceAtMost(d) else target)
+            showControls()
         }
     }
-    val centerControls = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER
-        setBackgroundColor(Color.TRANSPARENT)
-        addView(rewindButton, LinearLayout.LayoutParams(dp(64), dp(72)))
-        addView(pauseButton, LinearLayout.LayoutParams(dp(80), dp(80)).apply {
-            setMargins(dp(14), 0, dp(14), 0)
-        })
-        addView(forwardButton, LinearLayout.LayoutParams(dp(64), dp(72)))
-    }
-    frame.addView(centerControls, FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.WRAP_CONTENT, dp(88), Gravity.CENTER
-    ))
+
     val bottomPanel = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(12), dp(2), dp(12), dp(4))
@@ -1379,50 +1344,42 @@ private fun openFullscreen() {
             intArrayOf(Color.argb(190, 0, 0, 0), Color.TRANSPARENT)
         )
     }
-    val seek = SeekBar(this).apply {
-        max = 1000
-        progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-        thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(120, 255, 255, 255))
-        setPadding(0, 0, 0, 0)
-    }
-    bottomPanel.addView(seek, LinearLayout.LayoutParams(-1, dp(22)))
-
-    fun timeText(ms: Long): String {
-        if (ms < 0 || ms == C.TIME_UNSET) return "00:00"
-        val total = ms / 1000
-        return String.format(java.util.Locale.US, "%02d:%02d", total / 60, total % 60)
-    }
 
     val actionBar = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+        gravity = Gravity.CENTER
     }
-    val elapsed = TextView(this).apply {
-        text = "00:00"
-        textSize = 14f
-        setTextColor(Color.WHITE)
-        setShadowLayer(3f, 1f, 1f, Color.BLACK)
-    }
-    val separator = TextView(this).apply {
-        text = "  ·  "
-        textSize = 14f
-        setTextColor(Color.LTGRAY)
-    }
-    val duration = TextView(this).apply {
-        text = "00:00"
-        textSize = 14f
-        setTextColor(Color.LTGRAY)
-        setShadowLayer(3f, 1f, 1f, Color.BLACK)
-    }
-    actionBar.addView(elapsed)
-    actionBar.addView(separator)
-    actionBar.addView(duration, LinearLayout.LayoutParams(0, dp(44), 1f))
 
-    val audio = getSystemService(AUDIO_SERVICE) as AudioManager
-    val stream = AudioManager.STREAM_MUSIC
-    var previousVolume = audio.getStreamVolume(stream).coerceAtLeast(1)
+    fun addControl(view: View, width: Int = 42) {
+        actionBar.addView(view, LinearLayout.LayoutParams(dp(width), dp(46)))
+    }
 
+    val cast = textButton("▣", 25f).apply {
+        contentDescription = "البث إلى شاشة أخرى"
+        setOnClickListener {
+            message("لإضافة Chromecast يلزم ربط مكتبة Google Cast بالتطبيق.")
+            showControls()
+        }
+    }
+    val audioTracks = textButton("◉", 24f).apply {
+        contentDescription = "مسارات الصوت والترجمة"
+        setOnClickListener {
+            val p = player
+            if (p == null) return@setOnClickListener
+            val tracks = p.currentTracks
+            val details = tracks.groups.joinToString("\n") { group ->
+                val type = when (group.type) {
+                    C.TRACK_TYPE_AUDIO -> "صوت"
+                    C.TRACK_TYPE_TEXT -> "ترجمة"
+                    C.TRACK_TYPE_VIDEO -> "فيديو"
+                    else -> "مسار"
+                }
+                "$type: ${group.length} خيار"
+            }.ifBlank { "لا توجد مسارات إضافية متاحة." }
+            message(details)
+            showControls()
+        }
+    }
     val settings = textButton("⚙", 25f).apply {
         contentDescription = "إعدادات المشغل"
         setOnClickListener {
@@ -1438,59 +1395,71 @@ private fun openFullscreen() {
                 true
             }
             popup.show()
+            showControls()
         }
     }
-    val mute = textButton("◖", 25f).apply {
-        contentDescription = "كتم الصوت"
-        setOnClickListener {
-            val current = audio.getStreamVolume(stream)
-            if (current > 0) {
-                previousVolume = current
-                audio.setStreamVolume(stream, 0, 0)
-                text = "×"
-            } else {
-                audio.setStreamVolume(stream, previousVolume.coerceAtLeast(1), 0)
-                text = "◖"
-            }
-        }
-    }
-    val audioTracks = textButton("◉", 23f).apply {
-        contentDescription = "مسارات الصوت"
-        setOnClickListener {
-            message("مسارات الصوت المتاحة تُحدد حسب مصدر البث.")
-        }
-    }
-    val cast = textButton("⌁", 27f).apply {
-        contentDescription = "البث إلى شاشة أخرى"
-        setOnClickListener {
-            message("لإضافة البث إلى Chromecast أو شاشة خارجية، يلزم ربط مكتبة Google Cast بالتطبيق.")
-        }
-    }
-    val display = textButton("▱", 25f).apply {
-        contentDescription = "وضع العرض"
-        setOnClickListener {
-            fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
-                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            }
-        }
-    }
-    val miniPlayer = textButton("▢", 25f).apply {
-        contentDescription = "مشغل مصغر"
-        setOnClickListener {
-            message("وضع الصورة داخل الصورة يحتاج تفعيل Picture-in-Picture في إعدادات AndroidManifest أيضًا.")
-        }
-    }
-    val fullscreen = textButton("⛶", 28f).apply {
+    val fullscreen = textButton("⛶", 27f).apply {
         contentDescription = "إغلاق ملء الشاشة"
         setOnClickListener { dialog.dismiss() }
     }
-    // Each bottom control has a distinct role; avoid two buttons that both change picture fit.
-    listOf(settings, display, mute, cast, audioTracks, miniPlayer, fullscreen).forEach { btn ->
-        actionBar.addView(btn, LinearLayout.LayoutParams(dp(40), dp(44)))
+    val display = textButton("▭", 26f).apply {
+        contentDescription = "تغيير نمط عرض الفيديو"
+        setOnClickListener {
+            fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT ->
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL ->
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+            showControls()
+        }
     }
+
+    // One single control row, in the same order and near the bottom as the reference.
+    addControl(rewindButton, 48)
+    addControl(pauseButton, 48)
+    addControl(forwardButton, 48)
+    addControl(cast, 48)
+    addControl(audioTracks, 48)
+    addControl(settings, 48)
+    addControl(fullscreen, 48)
+    addControl(display, 48)
     bottomPanel.addView(actionBar)
+
+    val timeRow = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    fun timeText(ms: Long): String {
+        if (ms < 0 || ms == C.TIME_UNSET) return "00:00"
+        val total = ms / 1000
+        return String.format(java.util.Locale.US, "%02d:%02d", total / 60, total % 60)
+    }
+    val elapsed = TextView(this).apply {
+        text = "00:00"
+        textSize = 14f
+        setTextColor(Color.LTGRAY)
+        setTypeface(null, Typeface.BOLD)
+    }
+    val duration = TextView(this).apply {
+        text = "00:00"
+        textSize = 14f
+        setTextColor(Color.LTGRAY)
+        setTypeface(null, Typeface.BOLD)
+        gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+    }
+    val seek = SeekBar(this).apply {
+        max = 1000
+        progressTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
+        thumbTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
+        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(120, 255, 255, 255))
+        setPadding(0, 0, 0, 0)
+    }
+    timeRow.addView(elapsed, LinearLayout.LayoutParams(dp(58), dp(28)))
+    timeRow.addView(seek, LinearLayout.LayoutParams(0, dp(28), 1f))
+    timeRow.addView(duration, LinearLayout.LayoutParams(dp(58), dp(28)))
+    bottomPanel.addView(timeRow)
     frame.addView(bottomPanel, FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
 
     seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -1509,7 +1478,6 @@ private fun openFullscreen() {
         controlsVisible = true
         topBar.visibility = View.VISIBLE
         bottomPanel.visibility = View.VISIBLE
-        centerControls.visibility = View.VISIBLE
         handler.removeCallbacks(hideControls)
         handler.postDelayed(hideControls, 4500)
     }
@@ -1517,15 +1485,7 @@ private fun openFullscreen() {
         controlsVisible = false
         topBar.visibility = View.GONE
         bottomPanel.visibility = View.GONE
-        centerControls.visibility = View.GONE
     }
-    pauseButton.setOnClickListener {
-        val p = player ?: return@setOnClickListener
-        if (p.isPlaying) p.pause() else p.play()
-        pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
-        showControls()
-    }
-
     val updateProgress = object : Runnable {
         override fun run() {
             if (dialog.isShowing) {
