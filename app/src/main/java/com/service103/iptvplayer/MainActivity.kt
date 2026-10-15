@@ -1279,19 +1279,27 @@ private fun openFullscreen() {
         android.R.style.Theme_Black_NoTitleBar_Fullscreen
     )
 
-    val fullPlayer = PlayerView(this).apply {
-        useController = true
-        controllerAutoShow = true
-        controllerHideOnTouch = true
-        controllerShowTimeoutMs = 3000
     
-        player = this@MainActivity.player
-        resizeMode =
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-        keepScreenOn = true
-        setShutterBackgroundColor(Color.BLACK)
-        setBackgroundColor(Color.BLACK)
-    }
+val fullPlayer = layoutInflater.inflate(
+    R.layout.player_host,
+    null,
+    false
+) as PlayerView
+
+fullPlayer.apply {
+    useController = true
+    controllerAutoShow = true
+    controllerHideOnTouch = true
+    controllerShowTimeoutMs = 3000
+
+    resizeMode =
+        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+    keepScreenOn = true
+    setShutterBackgroundColor(Color.BLACK)
+    setBackgroundColor(Color.BLACK)
+}
+
 
     fullPlayer.findViewById<View>(R.id.quality_button)
         ?.setOnClickListener { view ->
