@@ -1440,9 +1440,14 @@ close.setOnClickListener {
     dialog.dismiss()  
 }  
 
-listOf(  
-    volumeDown, mute, volumeUp, aspect, close  
-).forEach { btn ->  
+listOf(
+    volumeDown,
+    mute,
+    volumeUp,
+    aspect,
+    quality,
+    close
+).forEach { btn ->
     controls.addView(  
         btn,  
         LinearLayout.LayoutParams(  
