@@ -1279,7 +1279,7 @@ private fun openFullscreen() {
         controllerAutoShow = true
         controllerHideOnTouch = true
         controllerShowTimeoutMs = 3000
-        setControllerLayoutId(R.layout.player_controls_103)
+    
         player = this@MainActivity.player
         resizeMode =
             androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
