@@ -1132,13 +1132,19 @@ private fun renderItems() {
             LinearLayout.LayoutParams(0, -2, 1f)  
         )  
 
-        row.setOnClickListener {  
-            if (ch.type == "series") {  
-                loadEpisodes(ch)  
-            } else {  
-                play(ch)  
-            }  
-        }  
+        row.setOnClickListener {
+    if (ch.type == "series") {
+        loadEpisodes(ch)
+    } else {
+        play(ch)
+
+        if (ch.type == "live" || ch.type == "episode") {
+            playerView?.post {
+                openFullscreen()
+            }
+        }
+    }
+}
 
         list.addView(  
             row,  
