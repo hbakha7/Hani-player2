@@ -1376,17 +1376,29 @@ private fun openFullscreen() {
         fullscreenDialog = null
     }
 
-    fullscreenDialog = dialog
+    
+fullscreenDialog = dialog
+
+dialog.setOnShowListener {
+    dialog.window?.apply {
+        setLayout(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT
+        )
+        setFlags(
+    WindowManager.LayoutParams.FLAG_FULLSCREEN,
+    WindowManager.LayoutParams.FLAG_FULLSCREEN
+)
+        addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
+    }
+
     requestedOrientation =
         ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-
-    dialog.show()
-    dialog.window?.setLayout(-1, -1)
-    dialog.window?.addFlags(
-        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-    )
 }
 
+dialog.show()
                 
             
         
