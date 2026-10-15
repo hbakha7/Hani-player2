@@ -14,7 +14,7 @@
         android:orientation="horizontal">
 
         <ImageButton
-            android:id="@id/exo_rew"
+            android:id="@+id/exo_rew"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="@android:color/transparent"
@@ -23,7 +23,7 @@
             android:tint="#FFFFFF" />
 
         <ImageButton
-            android:id="@id/exo_play"
+            android:id="@+id/exo_play"
             android:layout_width="56dp"
             android:layout_height="48dp"
             android:background="@android:color/transparent"
@@ -32,7 +32,7 @@
             android:tint="#FFFFFF" />
 
         <ImageButton
-            android:id="@id/exo_pause"
+            android:id="@+id/exo_pause"
             android:layout_width="56dp"
             android:layout_height="48dp"
             android:background="@android:color/transparent"
@@ -41,7 +41,7 @@
             android:tint="#FFFFFF" />
 
         <ImageButton
-            android:id="@id/exo_ffwd"
+            android:id="@+id/exo_ffwd"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="@android:color/transparent"
