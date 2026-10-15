@@ -1354,13 +1354,6 @@ private fun openFullscreen() {
         contentDescription = "تشغيل أو إيقاف مؤقت"
     }
     frame.addView(pauseButton, FrameLayout.LayoutParams(dp(80), dp(80), Gravity.CENTER))
-    pauseButton.setOnClickListener {
-        val p = player ?: return@setOnClickListener
-        if (p.isPlaying) p.pause() else p.play()
-        pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
-        showControls()
-    }
-
     val bottomPanel = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(12), dp(2), dp(12), dp(4))
@@ -1488,6 +1481,13 @@ private fun openFullscreen() {
         topBar.visibility = View.GONE
         bottomPanel.visibility = View.GONE
         pauseButton.visibility = View.GONE
+    }
+
+    pauseButton.setOnClickListener {
+        val p = player ?: return@setOnClickListener
+        if (p.isPlaying) p.pause() else p.play()
+        pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
+        showControls()
     }
 
     val updateProgress = object : Runnable {
