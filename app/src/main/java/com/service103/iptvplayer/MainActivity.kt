@@ -1018,12 +1018,17 @@ private fun showLibrary() {
     }  
     content.addView(tabs)  
 
-    playerView = PlayerView(this).apply {  
-        useController = true  
-        setBackgroundColor(Color.BLACK)  
-        layoutParams = LinearLayout.LayoutParams(-1, dp(225))  
-        keepScreenOn = true  
-    }  
+    playerView = layoutInflater.inflate(
+    R.layout.player_host,
+    content,
+    false
+) as PlayerView
+
+playerView?.apply {
+    layoutParams = LinearLayout.LayoutParams(-1, dp(225))
+    keepScreenOn = true
+    setBackgroundColor(Color.BLACK)
+}
     content.addView(playerView)  
 
     content.addView(button("⛶ ملء الشاشة") {  
