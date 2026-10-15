@@ -1307,6 +1307,8 @@ private fun openFullscreen() {
     topBar.addView(View(this), LinearLayout.LayoutParams(0, dp(48), 1f))
     frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(48), Gravity.TOP))
 
+    var showControls: () -> Unit = {}
+
     val pauseButton = textButton("Ⅱ", 31f).apply {
         contentDescription = "تشغيل أو إيقاف مؤقت"
         setOnClickListener {
@@ -1474,7 +1476,7 @@ private fun openFullscreen() {
     })
 
     lateinit var hideControls: Runnable
-    fun showControls() {
+    showControls = {
         controlsVisible = true
         topBar.visibility = View.VISIBLE
         bottomPanel.visibility = View.VISIBLE
