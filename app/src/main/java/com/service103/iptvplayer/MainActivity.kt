@@ -78,9 +78,41 @@ private val prefs by lazy {
 
 override fun onCreate(savedInstanceState: Bundle?) {  
     super.onCreate(savedInstanceState)  
-    window.statusBarColor = bg  
-    window.navigationBarColor = bg  
-    buildHome()  
+    window.statusBarColor = bg
+    window.navigationBarColor = bg
+    buildHome()
+    handleExternalLink(intent)
+}
+
+override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleExternalLink(intent)
+}
+
+private fun handleExternalLink(incoming: android.content.Intent?) {
+    if (incoming == null) return
+
+    val uriLink = incoming.data?.toString().orEmpty()
+    val sharedText = incoming.getStringExtra(android.content.Intent.EXTRA_TEXT).orEmpty()
+    val extraUrl = incoming.getStringExtra("url").orEmpty()
+        .ifBlank { incoming.getStringExtra("stream_url").orEmpty() }
+    val link = sequenceOf(uriLink, extraUrl, sharedText)
+        .map { it.trim() }
+        .firstOrNull { it.startsWith("https://", true) || it.startsWith("http://", true) }
+        ?: return
+
+    val name = incoming.getStringExtra("name")
+        ?: incoming.getStringExtra("channel_name")
+        ?: "فيديو مستلم"
+
+    // Keep the received URL in the saved library, then use this app's existing player.
+    saveHomeLink(name, link, link.substringBefore("?").endsWith(".m3u", true) ||
+        link.substringBefore("?").endsWith(".m3u8", true))
+
+    window.decorView.post {
+        playDirectFullscreen(link)
+    }
 }  
 
 private fun dp(v: Int): Int =  
