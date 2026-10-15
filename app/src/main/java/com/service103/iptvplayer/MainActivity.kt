@@ -617,7 +617,6 @@ private fun playDirectFullscreen(link: String) {
     }
 }
 
-
 private fun askXtream() {  
     val layout = makeColumn()  
 
@@ -1018,17 +1017,12 @@ private fun showLibrary() {
     }  
     content.addView(tabs)  
 
-    playerView = layoutInflater.inflate(
-    R.layout.player_host,
-    content,
-    false
-) as PlayerView
-
-playerView?.apply {
-    layoutParams = LinearLayout.LayoutParams(-1, dp(225))
-    keepScreenOn = true
-    setBackgroundColor(Color.BLACK)
-}
+    playerView = PlayerView(this).apply {  
+        useController = true  
+        setBackgroundColor(Color.BLACK)  
+        layoutParams = LinearLayout.LayoutParams(-1, dp(225))  
+        keepScreenOn = true  
+    }  
     content.addView(playerView)  
 
     content.addView(button("⛶ ملء الشاشة") {  
@@ -1137,19 +1131,13 @@ private fun renderItems() {
             LinearLayout.LayoutParams(0, -2, 1f)  
         )  
 
-        row.setOnClickListener {
-    if (ch.type == "series") {
-        loadEpisodes(ch)
-    } else {
-        play(ch)
-
-        if (ch.type == "live" || ch.type == "episode") {
-            playerView?.post {
-                openFullscreen()
-            }
-        }
-    }
-}
+        row.setOnClickListener {  
+            if (ch.type == "series") {  
+                loadEpisodes(ch)  
+            } else {  
+                play(ch)  
+            }  
+        }  
 
         list.addView(  
             row,  
@@ -1262,146 +1250,202 @@ if (playerView == null) {
 
 }
 
-
-
 private fun openFullscreen() {
-    val original = playerView ?: return
-    if (fullscreenDialog?.isShowing == true) return
+val original = playerView ?: return
+if (fullscreenDialog?.isShowing == true) return
 
-    val parent = original.parent as? ViewGroup ?: return
-    val oldOrientation = requestedOrientation
-    val oldIndex = parent.indexOfChild(original)
-    val oldParams = original.layoutParams
+val parent = original.parent as? ViewGroup ?: return  
+val oldOrientation = requestedOrientation  
+val oldIndex = parent.indexOfChild(original)  
+val oldParams = original.layoutParams  
 
-    parent.removeView(original)
-    original.player = null
+parent.removeView(original)  
 
-    val dialog = Dialog(
-        this,
-        android.R.style.Theme_Black_NoTitleBar_Fullscreen
-    )
+val dialog = Dialog(  
+    this,  
+    android.R.style.Theme_Black_NoTitleBar_Fullscreen  
+)  
 
-    val fullPlayer = layoutInflater.inflate(
-        R.layout.player_host,
-        null,
-        false
-    ) as PlayerView
+val frame = FrameLayout(this).apply {  
+    setBackgroundColor(Color.BLACK)  
+}  
 
-    fullPlayer.apply {
-        useController = true
-        controllerAutoShow = true
-        controllerHideOnTouch = true
-        controllerShowTimeoutMs = 3000
-        resizeMode =
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-        keepScreenOn = true
-        setShutterBackgroundColor(Color.BLACK)
-        setBackgroundColor(Color.BLACK)
-        player = this@MainActivity.player
-    }
+val fullPlayer = PlayerView(this).apply {  
+    useController = true  
+    player = this@MainActivity.player  
+    resizeMode =  
+        androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT  
+    keepScreenOn = true  
+    setShutterBackgroundColor(Color.BLACK)  
+}  
 
-    fullPlayer.findViewById<View>(R.id.quality_button)
-        ?.setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            listOf("تلقائي", "480p", "720p", "1080p")
-                .forEach { popup.menu.add(it) }
+frame.addView(  
+    fullPlayer,  
+    FrameLayout.LayoutParams(-1, -1)  
+)  
 
-            popup.setOnMenuItemClickListener { item ->
-                val height = when (item.title.toString()) {
-                    "480p" -> 480
-                    "720p" -> 720
-                    "1080p" -> 1080
-                    else -> Int.MAX_VALUE
-                }
+val controls = LinearLayout(this).apply {  
+    orientation = LinearLayout.HORIZONTAL  
+    gravity = Gravity.CENTER  
+    setPadding(dp(6), dp(4), dp(6), dp(4))  
+    background = rounded(Color.argb(160, 0, 0, 0), 24)  
+    elevation = dp(8).toFloat()  
+}  
 
-                player?.let { exo ->
-                    exo.trackSelectionParameters =
-                        exo.trackSelectionParameters.buildUpon()
-                            .setMaxVideoSize(Int.MAX_VALUE, height)
-                            .build()
-                }
-                true
-            }
-            popup.show()
-        }
+fun controlButton(value: String): TextView {  
+    return TextView(this).apply {  
+        text = value  
+        textSize = 13f  
+        setTextColor(Color.WHITE)  
+        gravity = Gravity.CENTER  
+        setPadding(dp(10), dp(7), dp(10), dp(7))  
+        background = rounded(Color.argb(100, 55, 55, 55), 20)  
+        isClickable = true  
+        isFocusable = true  
+    }  
+}  
 
-    fullPlayer.findViewById<View>(R.id.aspect_button)
-        ?.setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            listOf("FIT", "FULL", "ZOOM").forEach {
-                popup.menu.add(it)
-            }
+val audio = getSystemService(AUDIO_SERVICE) as AudioManager  
+val stream = AudioManager.STREAM_MUSIC  
+val maxVolume = audio.getStreamMaxVolume(stream)  
+var previousVolume =  
+    audio.getStreamVolume(stream).coerceAtLeast(1)  
 
-            popup.setOnMenuItemClickListener { item ->
-                fullPlayer.resizeMode =
-                    when (item.title.toString()) {
-                        "FULL" ->
-                            androidx.media3.ui.AspectRatioFrameLayout
-                                .RESIZE_MODE_FILL
-                        "ZOOM" ->
-                            androidx.media3.ui.AspectRatioFrameLayout
-                                .RESIZE_MODE_ZOOM
-                        else ->
-                            androidx.media3.ui.AspectRatioFrameLayout
-                                .RESIZE_MODE_FIT
-                    }
-                true
-            }
-            popup.show()
-        }
+val volumeDown = controlButton("−")  
+volumeDown.setOnClickListener {  
+    audio.adjustStreamVolume(  
+        stream,  
+        AudioManager.ADJUST_LOWER,  
+        0  
+    )  
+}  
 
-    fullPlayer.findViewById<View>(R.id.exit_fullscreen)
-        ?.setOnClickListener {
-            dialog.dismiss()
-        }
+val mute = controlButton("🔊")  
+mute.setOnClickListener {  
+    val current = audio.getStreamVolume(stream)  
 
-    dialog.setContentView(
-        fullPlayer,
-        ViewGroup.LayoutParams(-1, -1)
-    )
+    if (current > 0) {  
+        previousVolume = current  
+        audio.setStreamVolume(stream, 0, 0)  
+        mute.text = "🔇"  
+    } else {  
+        audio.setStreamVolume(  
+            stream,  
+            previousVolume.coerceIn(  
+                1, maxVolume.coerceAtLeast(1)  
+            ),  
+            0  
+        )  
+        mute.text = "🔊"  
+    }  
+}  
 
-    
-    
-fullscreenDialog = dialog
+val volumeUp = controlButton("+")  
+volumeUp.setOnClickListener {  
+    audio.adjustStreamVolume(  
+        stream,  
+        AudioManager.ADJUST_RAISE,  
+        0  
+    )  
+}  
 
-    dialog.setOnDismissListener {
-        fullPlayer.player = null
+val aspect = controlButton("FIT ▾")  
+aspect.setOnClickListener {  
+    val popup = PopupMenu(this, aspect)  
 
-        if (original.parent == null) {
-            parent.addView(
-                original,
-                oldIndex.coerceIn(0, parent.childCount),
-                oldParams
-            )
-        }
+    listOf("FIT", "FULL", "ZOOM").forEach {  
+        popup.menu.add(it)  
+    }  
 
-        original.player = player
-        requestedOrientation = oldOrientation
-        fullscreenDialog = null
-    }
+    popup.setOnMenuItemClickListener { item ->  
+        when (item.title.toString()) {  
+            "FIT" -> {  
+                fullPlayer.resizeMode =  
+                    androidx.media3.ui.AspectRatioFrameLayout  
+                        .RESIZE_MODE_FIT  
+            }  
 
-    dialog.show()
+            "FULL" -> {  
+                fullPlayer.resizeMode =  
+                    androidx.media3.ui.AspectRatioFrameLayout  
+                        .RESIZE_MODE_FILL  
+            }  
 
-    dialog.window?.apply {
-        setLayout(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT
-        )
-        setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
-        addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
-    }
+            "ZOOM" -> {  
+                fullPlayer.resizeMode =  
+                    androidx.media3.ui.AspectRatioFrameLayout  
+                        .RESIZE_MODE_ZOOM  
+            }  
+        }  
 
-    requestedOrientation =
-        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        aspect.text = "${item.title} ▾"  
+        true  
+    }  
+
+    popup.show()  
+}  
+
+val close = controlButton("✕")  
+close.setOnClickListener {  
+    dialog.dismiss()  
+}  
+
+listOf(  
+    volumeDown, mute, volumeUp, aspect, close  
+).forEach { btn ->  
+    controls.addView(  
+        btn,  
+        LinearLayout.LayoutParams(  
+            ViewGroup.LayoutParams.WRAP_CONTENT,  
+            dp(40)  
+        ).apply {  
+            setMargins(dp(2), 0, dp(2), 0)  
+        }  
+    )  
+}  
+
+frame.addView(  
+    controls,  
+    FrameLayout.LayoutParams(  
+        ViewGroup.LayoutParams.WRAP_CONTENT,  
+        ViewGroup.LayoutParams.WRAP_CONTENT,  
+        Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL  
+    ).apply {  
+        setMargins(dp(4), dp(4), dp(4), dp(18))  
+    }  
+)  
+
+dialog.setContentView(frame)  
+
+dialog.setOnDismissListener {  
+    fullPlayer.player = null  
+
+    (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)  
+
+    if (original.parent == null) {  
+        parent.addView(  
+            original,  
+            oldIndex.coerceIn(0, parent.childCount),  
+            oldParams  
+        )  
+    }  
+
+    original.player = player  
+    requestedOrientation = oldOrientation  
+    fullscreenDialog = null  
+}  
+
+fullscreenDialog = dialog  
+requestedOrientation =  
+    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE  
+
+dialog.show()  
+dialog.window?.setLayout(-1, -1)  
+dialog.window?.addFlags(  
+    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  
+)
+
 }
-
-        
-
 
 private fun showVolume() {  
     val audio = getSystemService(AUDIO_SERVICE) as AudioManager  
@@ -1461,4 +1505,3 @@ override fun onDestroy() {
 }
 
 }
-
