@@ -1273,7 +1273,7 @@ private fun openFullscreen() {
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
         keepScreenOn = true
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
@@ -1491,7 +1491,6 @@ private fun openFullscreen() {
         original.player = player
         original.useController = true
         requestedOrientation = oldOrientation
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         fullscreenDialog = null
     }
 
@@ -1500,25 +1499,6 @@ private fun openFullscreen() {
     dialog.show()
     dialog.window?.setLayout(-1, -1)
     dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-    // إخفاء شريط التنقل وشريط الحالة ليطابق المشغل وضع العرض الكامل.
-    @Suppress("DEPRECATION")
-    fun applyImmersiveMode() {
-        val decor = dialog.window?.decorView ?: return
-        decor.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            )
-    }
-    applyImmersiveMode()
-    dialog.window?.decorView?.setOnSystemUiVisibilityChangeListener {
-        applyImmersiveMode()
-    }
-    dialog.setOnShowListener { applyImmersiveMode() }
     handler.post(updateProgress)
 }
 
