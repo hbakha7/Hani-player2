@@ -49,7 +49,6 @@
             android:src="@android:drawable/ic_media_ff"
             android:contentDescription="تقديم"
             android:tint="#FFFFFF" />
-
     </LinearLayout>
 
     <androidx.media3.ui.DefaultTimeBar
@@ -86,7 +85,6 @@
             android:text="00:00"
             android:textColor="#FFFFFF"
             android:padding="4dp" />
-
     </LinearLayout>
 
     <LinearLayout
@@ -121,7 +119,6 @@
             android:textColor="#FFFFFF"
             android:textAllCaps="false"
             android:backgroundTint="#193E52" />
-
     </LinearLayout>
 
 </LinearLayout>
