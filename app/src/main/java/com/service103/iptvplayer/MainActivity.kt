@@ -38,6 +38,8 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionParameters
+data class StreamServer(val url: String, val quality: String = "AUTO", val width: Int = 0, val height: Int = 0)
+
 data class Channel(
 val name: String,
 val url: String,
@@ -67,6 +69,10 @@ private var currentUser = ""
 private var currentPass = ""  
 private var fullscreenDialog: Dialog? = null  
 private var directLinkPlayback = false
+private var currentChannel: Channel? = null
+private var serverButtonsContainer: LinearLayout? = null
+private var serverQualityLabel: TextView? = null
+private var lastServerButtonsSignature = ""
 private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
@@ -647,15 +653,4 @@ form.addView(button("تشغيل الرابط") {
     // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
     if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
         saveHomeLink(name, link, m3uCheck.isChecked)
-    }
-
-    if (browserCheck.isChecked) {  
-        try {  
-            startActivity(  
-                android.content.Intent(  
-                    android.content.Intent.ACTION_VIEW,  
-                    android.net.Uri.parse(link)  
-                )  
-            )  
-        } catch (_: Exception) {  
- 
+   
