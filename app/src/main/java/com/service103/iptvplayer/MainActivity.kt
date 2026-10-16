@@ -1138,35 +1138,50 @@ return headers
 
 }
 
-private fun createPlaybackPlayer(): ExoPlayer {
-val httpFactory = DefaultHttpDataSource.Factory()
-.setUserAgent(
-prefs.getString("add_user_agent", "")
-?.trim()
-?.takeIf { it.isNotEmpty() }
-?: "103IPTVPlayer/1.0"
-)
-.setDefaultRequestProperties(getPlaybackHeaders())
-.setConnectTimeoutMs(15000)
-.setReadTimeoutMs(20000)
 
-return ExoPlayer.Builder(this)  
-    .setMediaSourceFactory(  
-        DefaultMediaSourceFactory(this)  
-            .setDataSourceFactory(httpFactory)  
-    )  
-    .build()  
-    .also { exo ->  
-        exo.addListener(object : Player.Listener {  
-            override fun onPlayerError(error: PlaybackException) {  
-                message(  
-                    "تعذر تشغيل المحتوى:\n${error.errorCodeName}"  
-                )  
-            }  
-        })  
+private fun createPlaybackPlayer(): ExoPlayer {
+    val headers = getPlaybackHeaders().toMutableMap()
+
+    val userAgent = headers["User-Agent"]
+        ?.takeIf { it.isNotBlank() }
+        ?: "103IPTVPlayer/1.0"
+
+    headers["User-Agent"] = userAgent
+
+    val referrer = prefs.getString("add_referrer", "")
+        ?.trim()
+        .orEmpty()
+
+    if (referrer.isNotBlank()) {
+        headers["Referer"] = referrer
     }
 
+    val httpFactory = DefaultHttpDataSource.Factory()
+        .setUserAgent(userAgent)
+        .setDefaultRequestProperties(headers)
+        .setAllowCrossProtocolRedirects(true)
+        .setConnectTimeoutMs(15000)
+        .setReadTimeoutMs(20000)
+
+    return ExoPlayer.Builder(this)
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(this)
+                .setDataSourceFactory(httpFactory)
+        )
+        .build()
+        .also { exo ->
+            exo.addListener(object : Player.Listener {
+                override fun onPlayerError(
+                    error: PlaybackException
+                ) {
+                    message(
+                        "تعذر تشغيل المحتوى:\n${error.errorCodeName}"
+                    )
+                }
+            })
+        }
 }
+
 
 private fun showLibrary() {  
     val root = makeColumn()  
