@@ -1186,12 +1186,14 @@ return headers
 private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val headers = getPlaybackHeaders(refererOverride).toMutableMap()
 
+    // xPola accepts the stream with a blank User-Agent field. Some servers
+    // return an HTML/error page to the default ExoPlayer agent, so use a
+    // normal Android browser agent only when the user has not supplied one.
     val userAgent = headers["User-Agent"]
         ?.takeIf { it.isNotBlank() }
+        ?: "Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
-    if (userAgent == null) {
-        headers.remove("User-Agent")
-    }
+    headers["User-Agent"] = userAgent
 
     // A channel-specific Referer takes precedence over the global field.
     val referrer = refererOverride?.trim().orEmpty()
@@ -1206,9 +1208,7 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
         .setConnectTimeoutMs(15000)
         .setReadTimeoutMs(20000)
 
-    if (userAgent != null) {
-        httpFactory.setUserAgent(userAgent)
-    }
+    httpFactory.setUserAgent(userAgent)
 
     return ExoPlayer.Builder(this)
         .setMediaSourceFactory(
