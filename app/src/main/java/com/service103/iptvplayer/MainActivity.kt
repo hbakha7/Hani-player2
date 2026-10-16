@@ -855,16 +855,29 @@ playDirectFullscreen(link)
 private fun playDirectFullscreen(link: String) {
     val channel = channels.firstOrNull { it.url == link }
         ?: Channel(
-            name = "فيديو مباشر",
+            name = incomingChannelName.ifBlank { "فيديو مباشر" },
             url = link,
             group = "مباشر",
             type = "live"
         )
 
     currentType = "live"
-    showLibrary()
+    directLinkPlayback = true
 
-    playerView?.post {
+    // Create only a black player surface; do not open the library/home screen.
+    val directPlayerView = PlayerView(this).apply {
+        useController = false
+        setBackgroundColor(Color.BLACK)
+        keepScreenOn = true
+    }
+    playerView = directPlayerView
+    val directRoot = FrameLayout(this).apply {
+        setBackgroundColor(Color.BLACK)
+        addView(directPlayerView, FrameLayout.LayoutParams(-1, -1))
+    }
+    setContentView(directRoot)
+
+    directPlayerView.post {
         play(channel)
         openFullscreen()
     }
@@ -1912,7 +1925,9 @@ private fun openFullscreen() {
             requestedOrientation = oldOrientation
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             fullscreenDialog = null
-            buildHome()
+            // Returning from an external app launch should return to HANI TV,
+            // not show the player's library page.
+            finish()
             return@setOnDismissListener
         }
         if (original.parent == null) parent.addView(original, oldIndex.coerceIn(0, parent.childCount), oldParams)
