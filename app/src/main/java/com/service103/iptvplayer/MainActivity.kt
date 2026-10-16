@@ -66,6 +66,7 @@ private var currentHost = ""
 private var currentUser = ""  
 private var currentPass = ""  
 private var fullscreenDialog: Dialog? = null  
+private var directLinkPlayback = false
 private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
@@ -77,9 +78,41 @@ private val prefs by lazy {
 
 override fun onCreate(savedInstanceState: Bundle?) {  
     super.onCreate(savedInstanceState)  
-    window.statusBarColor = bg  
-    window.navigationBarColor = bg  
-    buildHome()  
+    window.statusBarColor = bg
+    window.navigationBarColor = bg
+    buildHome()
+    handleExternalLink(intent)
+}
+
+override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleExternalLink(intent)
+}
+
+private fun handleExternalLink(incoming: android.content.Intent?) {
+    if (incoming == null) return
+
+    val uriLink = incoming.data?.toString().orEmpty()
+    val sharedText = incoming.getStringExtra(android.content.Intent.EXTRA_TEXT).orEmpty()
+    val extraUrl = incoming.getStringExtra("url").orEmpty()
+        .ifBlank { incoming.getStringExtra("stream_url").orEmpty() }
+    val link = sequenceOf(uriLink, extraUrl, sharedText)
+        .map { it.trim() }
+        .firstOrNull { it.startsWith("https://", true) || it.startsWith("http://", true) }
+        ?: return
+
+    val name = incoming.getStringExtra("name")
+        ?: incoming.getStringExtra("channel_name")
+        ?: "فيديو مستلم"
+
+    // Keep the received URL in the saved library, then use this app's existing player.
+    saveHomeLink(name, link, link.substringBefore("?").endsWith(".m3u", true) ||
+        link.substringBefore("?").endsWith(".m3u8", true))
+
+    window.decorView.post {
+        playDirectFullscreen(link)
+    }
 }  
 
 private fun dp(v: Int): Int =  
@@ -126,6 +159,149 @@ private fun makeColumn() = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL  
     setPadding(dp(12), dp(10), dp(12), dp(12))  
     setBackgroundColor(bg)  
+}
+
+
+private fun getSavedLinks(): JSONArray {
+    return try {
+        JSONArray(prefs.getString("saved_home_links", "[]") ?: "[]")
+    } catch (_: Exception) {
+        JSONArray()
+    }
+}
+
+private fun saveHomeLink(name: String, url: String, isM3u: Boolean) {
+    val items = getSavedLinks()
+    // Update an existing entry with the same URL instead of creating duplicates.
+    val updated = JSONArray()
+    var replaced = false
+    for (i in 0 until items.length()) {
+        val item = items.optJSONObject(i) ?: continue
+        if (item.optString("url") == url) {
+            if (!replaced) {
+                updated.put(JSONObject().put("name", name).put("url", url).put("m3u", isM3u))
+                replaced = true
+            }
+        } else {
+            updated.put(item)
+        }
+    }
+    if (!replaced) {
+        updated.put(JSONObject().put("name", name).put("url", url).put("m3u", isM3u))
+    }
+    prefs.edit().putString("saved_home_links", updated.toString()).apply()
+}
+
+private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
+    content.removeAllViews()
+    val items = getSavedLinks()
+    if (items.length() == 0) {
+        empty.text = "103 IPTV PLAYER"
+        content.addView(empty, FrameLayout.LayoutParams(-1, -1))
+        return
+    }
+
+    val scroll = ScrollView(this)
+    val list = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+    }
+    for (i in 0 until items.length()) {
+        val item = items.optJSONObject(i) ?: continue
+        val name = item.optString("name", "رابط محفوظ").ifBlank { "رابط محفوظ" }
+        val url = item.optString("url", "")
+        val isM3u = item.optBoolean("m3u", false)
+        if (url.isBlank()) continue
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            background = rounded(Color.WHITE, 10)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (isM3u) {
+                    loadM3u(url)
+                } else {
+                    channels.clear()
+                    channels.add(Channel(name, url, "مباشر", type = "live"))
+                    currentType = "live"
+                    directLinkPlayback = true
+                    val directPlayerView = PlayerView(this@MainActivity).apply {
+                        useController = false
+                        setBackgroundColor(Color.BLACK)
+                        keepScreenOn = true
+                    }
+                    playerView = directPlayerView
+                    val directRoot = FrameLayout(this@MainActivity).apply {
+                        setBackgroundColor(Color.BLACK)
+                        addView(directPlayerView, FrameLayout.LayoutParams(-1, -1))
+                    }
+                    setContentView(directRoot)
+                    directPlayerView.post { play(channels.first()) }
+                }
+            }
+        }
+
+        val playIcon = TextView(this).apply {
+            text = "▶"
+            textSize = 27f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(85, 55, 15))
+        }
+        card.addView(playIcon, LinearLayout.LayoutParams(dp(48), dp(64)))
+
+        val details = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        details.addView(TextView(this@MainActivity).apply {
+            text = name
+            textSize = 16f
+            setTextColor(Color.BLACK)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        details.addView(TextView(this@MainActivity).apply {
+            text = url
+            textSize = 11f
+            setTextColor(Color.GRAY)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        })
+        card.addView(details, LinearLayout.LayoutParams(0, dp(64), 1f))
+        card.addView(TextView(this).apply {
+            text = if (isM3u) "M3U" else url.substringAfterLast('.', "").uppercase().take(4).ifBlank { "TS" }
+            textSize = 11f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(7), dp(5), dp(7), dp(5))
+            background = rounded(Color.BLACK, 5)
+        })
+        list.addView(card, LinearLayout.LayoutParams(-1, dp(82)).apply {
+            setMargins(0, 0, 0, dp(10))
+        })
+        card.setOnLongClickListener {
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(name)
+                .setItems(arrayOf("تشغيل", "حذف من الرئيسية")) { _, choice ->
+                    if (choice == 0) card.performClick() else {
+                        val current = getSavedLinks()
+                        val kept = JSONArray()
+                        for (j in 0 until current.length()) {
+                            val saved = current.optJSONObject(j) ?: continue
+                            if (saved.optString("url") != url) kept.put(saved)
+                        }
+                        prefs.edit().putString("saved_home_links", kept.toString()).apply()
+                        renderSavedHomeLinks(content, empty)
+                    }
+                }.show()
+            true
+        }
+    }
+    scroll.addView(list)
+    content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
 }
 
 private fun buildHome() {
@@ -183,10 +359,7 @@ val empty = TextView(this).apply {
     setTextColor(Color.rgb(25, 190, 165))  
 }  
 
-content.addView(  
-    empty,  
-    FrameLayout.LayoutParams(-1, -1)  
-)  
+renderSavedHomeLinks(content, empty)  
 
 root.addView(  
     content,  
@@ -232,8 +405,8 @@ fun navItem(symbol: String, caption: String, action: () -> Unit) {
     )  
 }  
 
-navItem("◉", "الرئيسية") {  
-    empty.text = "103 IPTV PLAYER"  
+navItem("◉", "الرئيسية") {
+    renderSavedHomeLinks(content, empty)
 }  
 
 navItem("▶", "الوسائط المحلية") {  
@@ -264,7 +437,7 @@ menu.setOnClickListener {
             arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")  
         ) { _, which ->  
             when (which) {  
-                0 -> empty.text = "103 IPTV PLAYER"  
+                0 -> renderSavedHomeLinks(content, empty)  
                 1 -> showAddLinkForm()  
                 2 -> showSaved()  
             }  
@@ -440,8 +613,12 @@ statusView = label("جاهز", 14f, accent)
 form.addView(statusView)  
 
 form.addView(button("تشغيل الرابط") {  
-    val name = nameInput.text.toString().trim()  
-        .ifBlank { "فيديو مباشر" }  
+    val name = nameInput.text.toString().trim()
+    if (name.isBlank()) {
+        message("أدخل اسمًا للرابط حتى يظهر في الرئيسية")
+        nameInput.requestFocus()
+        return@button
+    }
 
     var link = urlInput.text.toString().trim()  
 
@@ -467,6 +644,11 @@ form.addView(button("تشغيل الرابط") {
         return@button  
     }  
 
+    // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
+    if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
+        saveHomeLink(name, link, m3uCheck.isChecked)
+    }
+
     if (browserCheck.isChecked) {  
         try {  
             startActivity(  
@@ -476,248 +658,4 @@ form.addView(button("تشغيل الرابط") {
                 )  
             )  
         } catch (_: Exception) {  
-            message("تعذر فتح الرابط في المتصفح")  
-        }  
-        return@button  
-    }  
-
-    if (webPlayerCheck.isChecked) {  
-        message("مشغل WEB PLAYER غير مفعّل حاليًا")  
-        return@button  
-    }  
-
-    // حفظ حقول الرابط لإتاحتها عند فتح النموذج مرة أخرى  
-    prefs.edit()  
-        .putString("add_name", nameInput.text.toString())  
-        .putString("add_url", link)  
-        .putString("add_user_agent", userAgentInput.text.toString())  
-        .putString("add_referrer", referrerInput.text.toString())  
-        .putString("add_auth", authInput.text.toString())  
-        .putString("add_cookie", cookieInput.text.toString())  
-        .putString("add_license", licenseInput.text.toString())  
-        .apply()  
-
-    if (m3uCheck.isChecked) {  
-        prefs.edit().putString("last_m3u", link).apply()  
-        loadM3u(link)  
-    } else {  
-        channels.clear()  
-        channels.add(  
-            Channel(  
-                name = name,  
-                url = link,  
-                group = "مباشر",  
-                type = "live"  
-            )  
-        )  
-
-        currentType = "live"  
-        currentGroup = "الكل"  
-        showLibrary()  
-
-        playerView?.post {  
-            channels.firstOrNull()?.let { channel ->  
-                play(channel)  
-                openFullscreen()  
-            }  
-        }  
-    }  
-})  
-
-form.addView(button("رجوع للرئيسية") {  
-    buildHome()  
-})  
-
-scroll.addView(form)  
-root.addView(  
-    scroll,  
-    LinearLayout.LayoutParams(-1, 0, 1f)  
-)  
-setContentView(root)
-
-}
-
-private fun askM3u() {  
-    val input = EditText(this).apply {  
-        hint = "https://example.com/list.m3u"  
-        setTextColor(white)  
-        setHintTextColor(muted)  
-        inputType = InputType.TYPE_CLASS_TEXT or  
-            InputType.TYPE_TEXT_VARIATION_URI  
-    }  
-
-    val saved = prefs.getString("last_m3u", "")  
-    input.setText(saved)  
-
-    AlertDialog.Builder(this)  
-        .setTitle("إضافة قائمة M3U")  
-        .setView(input)  
-        .setNegativeButton("إلغاء", null)  
-        .setPositiveButton("تحميل") { _, _ ->  
-            val link = input.text.toString().trim()  
-            if (link.startsWith("http://") ||  
-                link.startsWith("https://")) {  
-                prefs.edit().putString("last_m3u", link).apply()  
-                loadM3u(link)  
-            } else {  
-                message("أدخل رابطًا صحيحًا يبدأ بـ http أو https")  
-            }  
-        }.show()  
-}
-
-private fun askDirect() {
-val input = EditText(this).apply {
-hint = "رابط فيديو MP4 أو M3U8"
-setTextColor(white)
-setHintTextColor(muted)
-inputType = InputType.TYPE_CLASS_TEXT or
-InputType.TYPE_TEXT_VARIATION_URI
-}
-
-AlertDialog.Builder(this)  
-    .setTitle("تشغيل رابط مباشر")  
-    .setView(input)  
-    .setNegativeButton("إلغاء", null)  
-    .setPositiveButton("تشغيل") { _, _ ->  
-        val link = input.text.toString().trim()  
-
-        if (link.startsWith("http://") ||  
-            link.startsWith("https://")) {  
-
-            channels.clear()  
-            channels.add(  
-                Channel("فيديو مباشر", link, "مباشر")  
-            )  
-
-            currentType = "live"
-
-playDirectFullscreen(link)
-
-} else {  
-            message("الرابط غير صحيح")  
-        }  
-    }  
-    .show()
-
-}
-
-private fun playDirectFullscreen(link: String) {
-    val channel = channels.firstOrNull { it.url == link }
-        ?: Channel(
-            name = "فيديو مباشر",
-            url = link,
-            group = "مباشر",
-            type = "live"
-        )
-
-    currentType = "live"
-    showLibrary()
-
-    playerView?.post {
-        play(channel)
-        openFullscreen()
-    }
-}
-
-private fun askXtream() {  
-    val layout = makeColumn()  
-
-    val host = EditText(this).apply {  
-        hint = "Server URL مثل http://server:8080"  
-        setTextColor(white)  
-        setHintTextColor(muted)  
-        inputType = InputType.TYPE_CLASS_TEXT or  
-            InputType.TYPE_TEXT_VARIATION_URI  
-    }  
-
-    val user = EditText(this).apply {  
-        hint = "اسم المستخدم"  
-        setTextColor(white)  
-        setHintTextColor(muted)  
-    }  
-
-    val pass = EditText(this).apply {  
-        hint = "كلمة المرور"  
-        setTextColor(white)  
-        setHintTextColor(muted)  
-        inputType = InputType.TYPE_CLASS_TEXT or  
-            InputType.TYPE_TEXT_VARIATION_PASSWORD  
-    }  
-
-    host.setText(prefs.getString("xt_host", ""))  
-    user.setText(prefs.getString("xt_user", ""))  
-
-    layout.addView(host)  
-    layout.addView(user)  
-    layout.addView(pass)  
-
-    AlertDialog.Builder(this)  
-        .setTitle("اتصال Xtream Codes")  
-        .setView(layout)  
-        .setNegativeButton("إلغاء", null)  
-        .setPositiveButton("اتصال وحفظ") { _, _ ->  
-            val h = host.text.toString().trim().trimEnd('/')  
-            val u = user.text.toString().trim()  
-            val p = pass.text.toString()  
-
-            if (!(h.startsWith("http://") ||  
-                h.startsWith("https://")) ||  
-                u.isBlank() || p.isBlank()) {  
-                message("تحقق من الخادم واسم المستخدم وكلمة المرور")  
-                return@setPositiveButton  
-            }  
-
-            currentHost = h  
-            currentUser = u  
-            currentPass = p  
-
-            prefs.edit()  
-                .putString("xt_host", h)  
-                .putString("xt_user", u)  
-                .putString("xt_pass", p)  
-                .apply()  
-
-            loadXtream("live")  
-        }.show()  
-}  
-
-private fun showSaved() {  
-    val options = arrayOf(  
-        "آخر قائمة M3U",  
-        "حساب Xtream المحفوظ"  
-    )  
-
-    AlertDialog.Builder(this)  
-        .setTitle("المحفوظات")  
-        .setItems(options) { _, which ->  
-            when (which) {  
-                0 -> {  
-                    val link = prefs.getString("last_m3u", "")  
-                    if (!link.isNullOrBlank()) loadM3u(link)  
-                    else message("لا توجد قائمة محفوظة")  
-                }  
-                1 -> {  
-                    val h = prefs.getString("xt_host", "") ?: ""  
-                    val u = prefs.getString("xt_user", "") ?: ""  
-                    val p = prefs.getString("xt_pass", "") ?: ""  
-                    if (h.isBlank() || u.isBlank() || p.isBlank()) {  
-                        message("لا يوجد حساب Xtream محفوظ")  
-                    } else {  
-                        currentHost = h  
-                        currentUser = u  
-                        currentPass = p  
-                        loadXtream("live")  
-                    }  
-                }  
-            }  
-        }.show()  
-}  
-
-private fun loadM3u(link: String) {  
-    setStatus("جارٍ تحميل القائمة...")  
-
-    lifecycleScope.launch {  
-        try {  
-            val data = withContext(Dispatchers.IO) {  
-                val conn = URL(link).openConnection()  
-                    as HttpUR
+ 
