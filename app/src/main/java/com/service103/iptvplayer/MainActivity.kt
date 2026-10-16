@@ -1228,19 +1228,27 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                     >().firstOrNull()
 
                     val status = details?.responseCode
-
-                    message(
-                        if (status != null) {
-                            "خطأ HTTP: $status"
-                        } else {
-                            "تعذر التشغيل: ${error.errorCodeName}\n" +
-                                (error.cause?.message
-                                    ?: "لا توجد تفاصيل إضافية") +
-                                if (error.errorCodeName.contains("PARSING_CONTAINER", true))
-                                    "\nقد تكون استجابة الخادم صفحة HTML/رفضًا بدل بيانات الفيديو؛ تحقق من HTTP وReferer وUser-Agent."
-                                else ""
+                    val causeDetails = generateSequence<Throwable>(error) { it.cause }
+                        .take(6)
+                        .joinToString("\n") { cause ->
+                            "${cause.javaClass.simpleName}: ${cause.message ?: "بدون تفاصيل"}"
                         }
-                    )
+                    val responseHeaders = details?.headerFields
+                        ?.entries
+                        ?.filter { it.key != null && it.key.equals("Content-Type", true) }
+                        ?.joinToString { "${it.key}: ${it.value?.joinToString()}" }
+                        .orEmpty()
+
+                    val diagnostic = buildString {
+                        append("تعذر التشغيل: ${error.errorCodeName}")
+                        if (status != null) append("\nHTTP: $status")
+                        if (responseHeaders.isNotBlank()) append("\n$responseHeaders")
+                        append("\n\nتفاصيل الخطأ:\n$causeDetails")
+                        if (error.errorCodeName.contains("PARSING_CONTAINER", true)) {
+                            append("\n\nهذا الخطأ لا يثبت أن Referer وحده هو السبب. قد تكون استجابة الخادم غير فيديو أو أن صيغة البث غير مدعومة.")
+                        }
+                    }
+                    message(diagnostic)
                 }
             })
         }
