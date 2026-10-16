@@ -117,6 +117,25 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
     incomingServerNames = incoming.getStringArrayListExtra("server_names") ?: arrayListOf()
     incomingServerUrls = incoming.getStringArrayListExtra("server_urls") ?: arrayListOf()
     incomingServerReferers = incoming.getStringArrayListExtra("server_referers") ?: arrayListOf()
+
+    // Backward-compatible fallback for HANI TV builds that send a JSON server list.
+    if (incomingServerUrls.isEmpty()) {
+        val rawServers = incoming.getStringExtra("servers_json").orEmpty()
+        if (rawServers.isNotBlank()) {
+            try {
+                val serverArray = JSONArray(rawServers)
+                for (i in 0 until serverArray.length()) {
+                    val item = serverArray.optJSONObject(i) ?: continue
+                    val serverUrl = item.optString("url", "").trim()
+                    if (serverUrl.startsWith("http://", true) || serverUrl.startsWith("https://", true)) {
+                        incomingServerNames.add(item.optString("name", "").ifBlank { "Server ${i + 1}" })
+                        incomingServerUrls.add(serverUrl)
+                        incomingServerReferers.add(item.optString("referer", ""))
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
     incomingSelectedServer = incoming.getIntExtra("selected_server_index", 0)
         .coerceIn(0, (incomingServerUrls.size - 1).coerceAtLeast(0))
     incomingChannelName = name
@@ -1653,7 +1672,8 @@ private fun openFullscreen() {
         }
         incomingServerNames.forEachIndexed { index, serverName ->
             val serverButton = TextView(this).apply {
-                text = serverName
+                text = "S${index + 1}"
+                contentDescription = serverName
                 textSize = 13f
                 gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
