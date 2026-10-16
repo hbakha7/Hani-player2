@@ -1143,10 +1143,11 @@ private fun createPlaybackPlayer(): ExoPlayer {
     val headers = getPlaybackHeaders().toMutableMap()
 
     val userAgent = headers["User-Agent"]
-        ?.takeIf { it.isNotBlank() }
-        ?: "103IPTVPlayer/1.0"
+    ?.takeIf { it.isNotBlank() }
 
-    headers["User-Agent"] = userAgent
+if (userAgent == null) {
+    headers.remove("User-Agent")
+}
 
     val referrer = prefs.getString("add_referrer", "")
         ?.trim()
@@ -1157,8 +1158,11 @@ private fun createPlaybackPlayer(): ExoPlayer {
     }
 
     val httpFactory = DefaultHttpDataSource.Factory()
-        .setUserAgent(userAgent)
-        .setDefaultRequestProperties(headers)
+    .setDefaultRequestProperties(headers)
+
+if (userAgent != null) {
+    httpFactory.setUserAgent(userAgent)
+}
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(15000)
         .setReadTimeoutMs(20000)
