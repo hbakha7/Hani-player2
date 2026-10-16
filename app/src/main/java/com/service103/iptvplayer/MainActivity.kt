@@ -70,6 +70,11 @@ private var currentUser = ""
 private var currentPass = ""  
 private var fullscreenDialog: Dialog? = null  
 private var directLinkPlayback = false
+private var incomingServerNames = arrayListOf<String>()
+private var incomingServerUrls = arrayListOf<String>()
+private var incomingServerReferers = arrayListOf<String>()
+private var incomingSelectedServer = 0
+private var incomingChannelName = ""
 private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
@@ -109,13 +114,21 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
         ?: incoming.getStringExtra("channel_name")
         ?: "فيديو مستلم"
 
+    incomingServerNames = incoming.getStringArrayListExtra("server_names") ?: arrayListOf()
+    incomingServerUrls = incoming.getStringArrayListExtra("server_urls") ?: arrayListOf()
+    incomingServerReferers = incoming.getStringArrayListExtra("server_referers") ?: arrayListOf()
+    incomingSelectedServer = incoming.getIntExtra("selected_server_index", 0)
+        .coerceIn(0, (incomingServerUrls.size - 1).coerceAtLeast(0))
+    incomingChannelName = name
+    val referer = incoming.getStringExtra("referer") ?: incoming.getStringExtra("referrer")
+
     // Keep the received URL in the saved library, then use this app's existing player.
     saveHomeLink(name, link, link.substringBefore("?").endsWith(".m3u", true) ||
-        link.substringBefore("?").endsWith(".m3u8", true))
+        link.substringBefore("?").endsWith(".m3u8", true), referer.orEmpty())
 
-    window.decorView.post {
-        playDirectFullscreen(link)
-    }
+    channels.removeAll { it.name == name && it.group == "مباشر" }
+    channels.add(Channel(name, link, "مباشر", type = "live", referer = referer))
+    window.decorView.post { playDirectFullscreen(link) }
 }  
 
 private fun dp(v: Int): Int =  
@@ -1629,6 +1642,57 @@ private fun openFullscreen() {
     topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
     topBar.addView(View(this), LinearLayout.LayoutParams(0, dp(48), 1f))
     frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(48), Gravity.TOP))
+
+    // Display the server choices received from HANI TV only when multiple servers exist.
+    if (incomingServerUrls.size > 1 && incomingServerNames.size == incomingServerUrls.size) {
+        val serverBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setBackgroundColor(Color.argb(105, 0, 0, 0))
+        }
+        incomingServerNames.forEachIndexed { index, serverName ->
+            val serverButton = TextView(this).apply {
+                text = serverName
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(24).toFloat()
+                    setColor(if (index == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(150, 45, 45, 45))
+                    setStroke(dp(1), if (index == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
+                }
+                setOnClickListener {
+                    if (index == incomingSelectedServer) return@setOnClickListener
+                    incomingSelectedServer = index
+                    val targetUrl = incomingServerUrls.getOrNull(index) ?: return@setOnClickListener
+                    val targetReferer = incomingServerReferers.getOrNull(index).orEmpty()
+                    val channel = Channel(incomingChannelName.ifBlank { "بث مباشر" }, targetUrl,
+                        "مباشر", type = "live", referer = targetReferer)
+                    channels.removeAll { it.name == channel.name && it.group == "مباشر" }
+                    channels.add(channel)
+                    play(channel)
+                    fullPlayer.player = player
+                    incomingServerNames.forEachIndexed { buttonIndex, _ ->
+                        (serverBar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            cornerRadius = dp(24).toFloat()
+                            setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(150, 45, 45, 45))
+                            setStroke(dp(1), if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
+                        }
+                    }
+                }
+            }
+            val params = LinearLayout.LayoutParams(-2, -2)
+            params.marginEnd = dp(8)
+            serverBar.addView(serverButton, params)
+        }
+        val serverParams = FrameLayout.LayoutParams(-1, -2, Gravity.TOP)
+        serverParams.topMargin = dp(54)
+        frame.addView(serverBar, serverParams)
+    }
 
     var showControls: () -> Unit = {}
 
