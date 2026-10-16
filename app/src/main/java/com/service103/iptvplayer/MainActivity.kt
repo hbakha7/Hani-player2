@@ -117,25 +117,6 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
     incomingServerNames = incoming.getStringArrayListExtra("server_names") ?: arrayListOf()
     incomingServerUrls = incoming.getStringArrayListExtra("server_urls") ?: arrayListOf()
     incomingServerReferers = incoming.getStringArrayListExtra("server_referers") ?: arrayListOf()
-
-    // Backward-compatible fallback for HANI TV builds that send a JSON server list.
-    if (incomingServerUrls.isEmpty()) {
-        val rawServers = incoming.getStringExtra("servers_json").orEmpty()
-        if (rawServers.isNotBlank()) {
-            try {
-                val serverArray = JSONArray(rawServers)
-                for (i in 0 until serverArray.length()) {
-                    val item = serverArray.optJSONObject(i) ?: continue
-                    val serverUrl = item.optString("url", "").trim()
-                    if (serverUrl.startsWith("http://", true) || serverUrl.startsWith("https://", true)) {
-                        incomingServerNames.add(item.optString("name", "").ifBlank { "Server ${i + 1}" })
-                        incomingServerUrls.add(serverUrl)
-                        incomingServerReferers.add(item.optString("referer", ""))
-                    }
-                }
-            } catch (_: Exception) { }
-        }
-    }
     incomingSelectedServer = incoming.getIntExtra("selected_server_index", 0)
         .coerceIn(0, (incomingServerUrls.size - 1).coerceAtLeast(0))
     incomingChannelName = name
@@ -1662,26 +1643,25 @@ private fun openFullscreen() {
     topBar.addView(View(this), LinearLayout.LayoutParams(0, dp(48), 1f))
     frame.addView(topBar, FrameLayout.LayoutParams(-1, dp(48), Gravity.TOP))
 
-    // Display the server choices received from HANI TV only when multiple servers exist.
+    // Server circles overlay the video without a long dark bar behind them.
+    var serverButtonsContainer: LinearLayout? = null
     if (incomingServerUrls.size > 1 && incomingServerNames.size == incomingServerUrls.size) {
         val serverBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            setBackgroundColor(Color.argb(105, 0, 0, 0))
+            setPadding(0, 0, 0, 0)
+            setBackgroundColor(Color.TRANSPARENT)
         }
+        serverButtonsContainer = serverBar
         incomingServerNames.forEachIndexed { index, serverName ->
             val serverButton = TextView(this).apply {
-                text = "S${index + 1}"
-                contentDescription = serverName
+                text = serverName.ifBlank { "S${index + 1}" }
                 textSize = 13f
                 gravity = Gravity.CENTER
                 setTextColor(Color.WHITE)
-                setPadding(dp(12), dp(8), dp(12), dp(8))
                 background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dp(24).toFloat()
-                    setColor(if (index == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(150, 45, 45, 45))
+                    shape = GradientDrawable.OVAL
+                    setColor(if (index == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(135, 35, 35, 35))
                     setStroke(dp(1), if (index == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
                 }
                 setOnClickListener {
@@ -1697,20 +1677,20 @@ private fun openFullscreen() {
                     fullPlayer.player = player
                     incomingServerNames.forEachIndexed { buttonIndex, _ ->
                         (serverBar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            cornerRadius = dp(24).toFloat()
-                            setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(150, 45, 45, 45))
+                            shape = GradientDrawable.OVAL
+                            setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(135, 35, 35, 35))
                             setStroke(dp(1), if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
                         }
                     }
                 }
             }
-            val params = LinearLayout.LayoutParams(-2, -2)
+            val params = LinearLayout.LayoutParams(dp(48), dp(48))
             params.marginEnd = dp(8)
             serverBar.addView(serverButton, params)
         }
-        val serverParams = FrameLayout.LayoutParams(-1, -2, Gravity.TOP)
+        val serverParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.LEFT)
         serverParams.topMargin = dp(54)
+        serverParams.leftMargin = dp(12)
         frame.addView(serverBar, serverParams)
     }
 
@@ -1887,6 +1867,7 @@ private fun openFullscreen() {
         controlsVisible = true
         topBar.visibility = View.VISIBLE
         bottomPanel.visibility = View.VISIBLE
+        serverButtonsContainer?.visibility = View.VISIBLE
         handler.removeCallbacks(hideControls)
         handler.postDelayed(hideControls, 4500)
     }
@@ -1894,6 +1875,7 @@ private fun openFullscreen() {
         controlsVisible = false
         topBar.visibility = View.GONE
         bottomPanel.visibility = View.GONE
+        serverButtonsContainer?.visibility = View.GONE
     }
     val updateProgress = object : Runnable {
         override fun run() {
