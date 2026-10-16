@@ -1139,15 +1139,16 @@ return headers
 }
 
 
+
 private fun createPlaybackPlayer(): ExoPlayer {
     val headers = getPlaybackHeaders().toMutableMap()
 
     val userAgent = headers["User-Agent"]
-    ?.takeIf { it.isNotBlank() }
+        ?.takeIf { it.isNotBlank() }
 
-if (userAgent == null) {
-    headers.remove("User-Agent")
-}
+    if (userAgent == null) {
+        headers.remove("User-Agent")
+    }
 
     val referrer = prefs.getString("add_referrer", "")
         ?.trim()
@@ -1158,17 +1159,14 @@ if (userAgent == null) {
     }
 
     val httpFactory = DefaultHttpDataSource.Factory()
-    .setDefaultRequestProperties(headers)
+        .setDefaultRequestProperties(headers)
+        .setAllowCrossProtocolRedirects(true)
+        .setConnectTimeoutMs(15000)
+        .setReadTimeoutMs(20000)
 
-
-if (userAgent != null) {
-    httpFactory.setUserAgent(userAgent)
-}
-
-httpFactory.setAllowCrossProtocolRedirects(true)
-httpFactory.setConnectTimeoutMs(15000)
-httpFactory.setReadTimeoutMs(20000)
-
+    if (userAgent != null) {
+        httpFactory.setUserAgent(userAgent)
+    }
 
     return ExoPlayer.Builder(this)
         .setMediaSourceFactory(
@@ -1181,28 +1179,28 @@ httpFactory.setReadTimeoutMs(20000)
                 override fun onPlayerError(
                     error: PlaybackException
                 ) {
-                    
-                        
-val cause = error.cause
-val details = generateSequence(cause) { it.cause }
-    .filterIsInstance<
-        androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
-    >()
-    .firstOrNull()
+                    val details = generateSequence(error.cause) {
+                        it.cause
+                    }.filterIsInstance<
+                        androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
+                    >().firstOrNull()
 
-val status = details?.responseCode
+                    val status = details?.responseCode
 
-
-message(
-    if (status != null) {
-        "خطأ HTTP: $status"
-    } else {
-        "تعذر التشغيل: ${error.errorCodeName}\n" +
-            (cause?.message ?: "لا توجد تفاصيل إضافية")
-    }
-)
-})
+                    message(
+                        if (status != null) {
+                            "خطأ HTTP: $status"
+                        } else {
+                            "تعذر التشغيل: ${error.errorCodeName}\n" +
+                                (error.cause?.message
+                                    ?: "لا توجد تفاصيل إضافية")
+                        }
+                    )
+                }
+            })
+        }
 }
+
 
 
 
