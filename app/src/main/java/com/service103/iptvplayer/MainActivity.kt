@@ -21,6 +21,7 @@ import android.text.InputType
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -1186,14 +1187,12 @@ return headers
 private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val headers = getPlaybackHeaders(refererOverride).toMutableMap()
 
-    // xPola accepts the stream with a blank User-Agent field. Some servers
-    // return an HTML/error page to the default ExoPlayer agent, so use a
-    // normal Android browser agent only when the user has not supplied one.
     val userAgent = headers["User-Agent"]
         ?.takeIf { it.isNotBlank() }
-        ?: "Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
-    headers["User-Agent"] = userAgent
+    if (userAgent == null) {
+        headers.remove("User-Agent")
+    }
 
     // A channel-specific Referer takes precedence over the global field.
     val referrer = refererOverride?.trim().orEmpty()
@@ -1208,7 +1207,9 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
         .setConnectTimeoutMs(15000)
         .setReadTimeoutMs(20000)
 
-    httpFactory.setUserAgent(userAgent)
+    if (userAgent != null) {
+        httpFactory.setUserAgent(userAgent)
+    }
 
     return ExoPlayer.Builder(this)
         .setMediaSourceFactory(
@@ -1522,6 +1523,20 @@ if (playerView == null) {
     val itemBuilder = MediaItem.Builder()
         .setUri(ch.url)
         .setMediaId(ch.name)
+
+    // Some providers expose an HLS stream behind an URL ending in index.html
+    // or another non-standard path. In that case Media3 otherwise treats it
+    // as a progressive file and throws UnrecognizedInputFormatException.
+    // Only apply this fallback to the specific index.html-style endpoint;
+    // normal .ts/.mp4/.m3u8 URLs keep their usual detection.
+    val normalizedPath = try {
+        android.net.Uri.parse(ch.url).path.orEmpty().lowercase()
+    } catch (_: Exception) {
+        ""
+    }
+    if (normalizedPath.endsWith("/index.html") || normalizedPath == "index.html") {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    }
 
     val drmName = prefs.getString("add_drm_scheme", "بدون DRM").orEmpty().lowercase()
     val licenseUrl = prefs.getString("add_license", "").orEmpty().trim()
