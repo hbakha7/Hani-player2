@@ -1160,12 +1160,15 @@ if (userAgent == null) {
     val httpFactory = DefaultHttpDataSource.Factory()
     .setDefaultRequestProperties(headers)
 
+
 if (userAgent != null) {
     httpFactory.setUserAgent(userAgent)
 }
-        .setAllowCrossProtocolRedirects(true)
-        .setConnectTimeoutMs(15000)
-        .setReadTimeoutMs(20000)
+
+httpFactory.setAllowCrossProtocolRedirects(true)
+httpFactory.setConnectTimeoutMs(15000)
+httpFactory.setReadTimeoutMs(20000)
+
 
     return ExoPlayer.Builder(this)
         .setMediaSourceFactory(
