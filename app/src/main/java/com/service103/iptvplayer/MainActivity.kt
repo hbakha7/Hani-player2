@@ -1181,13 +1181,29 @@ httpFactory.setReadTimeoutMs(20000)
                 override fun onPlayerError(
                     error: PlaybackException
                 ) {
-                    message(
-                        "تعذر تشغيل المحتوى:\n${error.errorCodeName}"
-                    )
-                }
-            })
-        }
+                    
+                        
+val cause = error.cause
+val details = generateSequence(cause) { it.cause }
+    .filterIsInstance<
+        androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
+    >()
+    .firstOrNull()
+
+val status = details?.responseCode
+
+
+message(
+    if (status != null) {
+        "خطأ HTTP: $status"
+    } else {
+        "تعذر التشغيل: ${error.errorCodeName}\n" +
+            (cause?.message ?: "لا توجد تفاصيل إضافية")
+    }
+)
+})
 }
+
 
 
 private fun showLibrary() {  
