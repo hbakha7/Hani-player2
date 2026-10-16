@@ -33,6 +33,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.UUID
 import android.util.Base64
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -528,7 +529,16 @@ val userAgentInput = inputField("User-Agent")
 val referrerInput = inputField("Referrer")  
 val authInput = inputField("Authentication")  
 val cookieInput = inputField("Cookie (name=joe;app=xpola;id=value ...)")  
-val licenseInput = inputField("License")  
+val licenseInput = inputField("License")
+
+// Restore the last entered values so all headers stay together for the next playback.
+nameInput.setText(prefs.getString("add_name", ""))
+urlInput.setText(prefs.getString("add_url", ""))
+userAgentInput.setText(prefs.getString("add_user_agent", ""))
+referrerInput.setText(prefs.getString("add_referrer", ""))
+authInput.setText(prefs.getString("add_auth", ""))
+cookieInput.setText(prefs.getString("add_cookie", ""))
+licenseInput.setText(prefs.getString("add_license", ""))
 
 addField(nameInput)  
 addField(urlInput)  
@@ -555,6 +565,24 @@ form.addView(
         setMargins(0, dp(5), 0, dp(12))  
     }  
 )  
+
+form.addView(label("DRM Scheme", 17f, white))
+val drmChoices = listOf("بدون DRM", "clearkey", "widevine", "playready")
+val drmScheme = Spinner(this).apply {
+    adapter = ArrayAdapter(
+        this@MainActivity,
+        android.R.layout.simple_spinner_dropdown_item,
+        drmChoices
+    )
+    background = rounded(Color.rgb(12, 30, 47), 5)
+    setSelection(drmChoices.indexOf(prefs.getString("add_drm_scheme", "بدون DRM")).let { if (it >= 0) it else 0 })
+}
+form.addView(
+    drmScheme,
+    LinearLayout.LayoutParams(-1, dp(54)).apply {
+        setMargins(0, dp(5), 0, dp(12))
+    }
+)
 
 fun option(text: String, checked: Boolean = false) =  
     CheckBox(this).apply {  
@@ -645,6 +673,18 @@ form.addView(button("تشغيل الرابط") {
         return@button  
     }  
 
+    // Save all request headers and DRM selection before any playback path is chosen.
+    prefs.edit()
+        .putString("add_name", name)
+        .putString("add_url", link)
+        .putString("add_user_agent", userAgentInput.text.toString().trim())
+        .putString("add_referrer", referrerInput.text.toString().trim())
+        .putString("add_auth", authInput.text.toString().trim())
+        .putString("add_cookie", cookieInput.text.toString().trim())
+        .putString("add_license", licenseInput.text.toString().trim())
+        .putString("add_drm_scheme", drmScheme.selectedItem.toString())
+        .apply()
+
     // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
     if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
         saveHomeLink(name, link, m3uCheck.isChecked, referrerInput.text.toString())
@@ -677,7 +717,8 @@ form.addView(button("تشغيل الرابط") {
         .putString("add_referrer", referrerInput.text.toString())  
         .putString("add_auth", authInput.text.toString())  
         .putString("add_cookie", cookieInput.text.toString())  
-        .putString("add_license", licenseInput.text.toString())  
+        .putString("add_license", licenseInput.text.toString())
+        .putString("add_drm_scheme", drmScheme.selectedItem.toString())
         .apply()  
 
     if (m3uCheck.isChecked) {  
@@ -1107,8 +1148,8 @@ prefs.getString("add_user_agent", "")
     ?.takeIf { it.isNotEmpty() }  
     ?.let { headers["User-Agent"] = it }  
 
-(refererOverride ?: prefs.getString("add_referrer", "").orEmpty())
-    .trim()
+(refererOverride?.trim()?.takeIf { it.isNotEmpty() }
+    ?: prefs.getString("add_referrer", "").orEmpty().trim())
     .takeIf { it.isNotEmpty() }
     ?.let { headers["Referer"] = it }  
 
@@ -1470,10 +1511,35 @@ if (playerView == null) {
 
     playerView?.player = player  
 
-    val item = MediaItem.Builder()  
-        .setUri(ch.url)  
-        .setMediaId(ch.name)  
-        .build()  
+    val itemBuilder = MediaItem.Builder()
+        .setUri(ch.url)
+        .setMediaId(ch.name)
+
+    val drmName = prefs.getString("add_drm_scheme", "بدون DRM").orEmpty().lowercase()
+    val licenseUrl = prefs.getString("add_license", "").orEmpty().trim()
+    if (drmName != "بدون drm" && drmName.isNotBlank()) {
+        if (licenseUrl.isBlank()) {
+            message("اخترت DRM لكن خانة License فارغة. أدخل رابط خادم الترخيص.")
+            return
+        }
+        val drmUuid: UUID = when (drmName) {
+            "clearkey" -> C.CLEARKEY_UUID
+            "widevine" -> C.WIDEVINE_UUID
+            "playready" -> C.PLAYREADY_UUID
+            else -> {
+                message("نوع DRM غير معروف")
+                return
+            }
+        }
+        val licenseHeaders = getPlaybackHeaders(ch.referer)
+        itemBuilder.setDrmConfiguration(
+            MediaItem.DrmConfiguration.Builder(drmUuid)
+                .setLicenseUri(android.net.Uri.parse(licenseUrl))
+                .setLicenseRequestHeaders(licenseHeaders)
+                .build()
+        )
+    }
+    val item = itemBuilder.build()
 
     player?.setMediaItem(item)  
     player?.prepare()  
