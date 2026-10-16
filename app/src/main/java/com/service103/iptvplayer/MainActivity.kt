@@ -1194,7 +1194,10 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                         } else {
                             "تعذر التشغيل: ${error.errorCodeName}\n" +
                                 (error.cause?.message
-                                    ?: "لا توجد تفاصيل إضافية")
+                                    ?: "لا توجد تفاصيل إضافية") +
+                                if (error.errorCodeName.contains("PARSING_CONTAINER", true))
+                                    "\nقد تكون استجابة الخادم صفحة HTML/رفضًا بدل بيانات الفيديو؛ تحقق من HTTP وReferer وUser-Agent."
+                                else ""
                         }
                     )
                 }
