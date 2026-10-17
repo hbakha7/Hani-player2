@@ -1984,19 +1984,33 @@ private fun openFullscreen() {
             if (dialog.isShowing) {
                 val p = player
                 if (p != null) {
-                    val d = p.duration
-                    elapsed.text = timeText(p.currentPosition)
+                    val actualDuration = p.duration
+                    var d = actualDuration
+                    var position = p.currentPosition
+                    var buffered = p.bufferedPosition
+
+                    // Some live streams expose their duration through the current timeline
+                    // window even when player.duration is TIME_UNSET.
+                    if ((d <= 0L || d == C.TIME_UNSET) && !p.currentTimeline.isEmpty) {
+                        val timelineWindow = androidx.media3.common.Timeline.Window()
+                        p.currentTimeline.getWindow(p.currentMediaItemIndex, timelineWindow)
+                        if (timelineWindow.durationMs > 0L &&
+                            timelineWindow.durationMs != C.TIME_UNSET) {
+                            d = timelineWindow.durationMs
+                        }
+                    }
+
+                    elapsed.text = timeText(position)
                     duration.text = timeText(d)
-                    if (d > 0 && d != C.TIME_UNSET && !seek.isPressed) {
-                        // Refresh the thumb/played track continuously as playback advances.
-                        seek.progress = ((p.currentPosition.coerceAtLeast(0L) * 1000L) / d)
+                    if (d > 0L && d != C.TIME_UNSET && !seek.isPressed) {
+                        // Move the white thumb and played track with the playback position.
+                        seek.progress = ((position.coerceAtLeast(0L) * 1000L) / d)
                             .toInt().coerceIn(0, 1000)
-                        val buffered = p.bufferedPosition.coerceAtLeast(p.currentPosition)
+                        buffered = buffered.coerceAtLeast(position)
                         seek.secondaryProgress = ((buffered.coerceAtMost(d) * 1000L) / d)
                             .toInt().coerceIn(seek.progress, 1000)
-                    } else if (d <= 0 || d == C.TIME_UNSET) {
-                        // Live streams usually have no finite duration, so they cannot
-                        // display a meaningful elapsed-percentage seek position.
+                    } else if (d <= 0L || d == C.TIME_UNSET) {
+                        // A truly unbounded live stream has no measurable percentage timeline.
                         seek.progress = 0
                         seek.secondaryProgress = 0
                     }
