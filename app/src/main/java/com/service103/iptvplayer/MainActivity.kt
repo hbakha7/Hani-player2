@@ -128,9 +128,7 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
     incomingChannelName = name
     val referer = incoming.getStringExtra("referer") ?: incoming.getStringExtra("referrer")
 
-    // Keep the received URL in the saved library, then use this app's existing player.
-    saveHomeLink(name, link, link.substringBefore("?").endsWith(".m3u", true) ||
-        link.substringBefore("?").endsWith(".m3u8", true), referer.orEmpty())
+    // Links received from HANI TV are temporary playback links; do not save them.
 
     channels.removeAll { it.name == name && it.group == "مباشر" }
     channels.add(Channel(name, link, "مباشر", type = "live", referer = referer))
