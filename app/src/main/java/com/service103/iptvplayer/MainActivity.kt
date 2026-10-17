@@ -77,7 +77,8 @@ private var incomingSelectedServer = 0
 private var incomingChannelName = ""
 private var fullscreenView: PlayerView? = null
 private var retryHandler = Handler(Looper.getMainLooper())
-private var retryRunnable: Runnable? = null  
+private var retryRunnable: Runnable? = null
+private var bufferingRetryRunnable: Runnable? = null
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
 private var savedLayoutParams: ViewGroup.LayoutParams? = null  
@@ -1248,32 +1249,33 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
         .build()
         .also { exo ->
             exo.addListener(object : Player.Listener {
-                override fun onPlayerError(
-                    error: PlaybackException
-                ) {
-                    // HANI TV alternate servers: never show an error message.
-                    // Cycle forever through the supplied server URLs, retrying each
-                    // after a short pause, even if every server keeps failing.
-                    if (incomingServerUrls.isNotEmpty() &&
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    // Some dead servers never raise onPlayerError and stay buffering.
+                    // Switch away from a server that has not reached READY after 12 seconds.
+                    bufferingRetryRunnable?.let { retryHandler.removeCallbacks(it) }
+                    bufferingRetryRunnable = null
+                    if (playbackState == Player.STATE_BUFFERING &&
+                        incomingServerUrls.size > 1 &&
                         incomingServerNames.size == incomingServerUrls.size) {
-                        retryRunnable?.let { retryHandler.removeCallbacks(it) }
-                        incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
-                        val nextUrl = incomingServerUrls[incomingSelectedServer]
-                        val nextReferer = incomingServerReferers.getOrNull(incomingSelectedServer).orEmpty()
-                        val nextChannel = Channel(
-                            incomingChannelName.ifBlank { "بث مباشر" },
-                            nextUrl,
-                            "مباشر",
-                            type = "live",
-                            referer = nextReferer
-                        )
-                        retryRunnable = Runnable {
-                            channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
-                            channels.add(nextChannel)
-                            play(nextChannel)
-                            fullscreenView?.player = player
+                        val thisPlayer = exo
+                        val watchdog = Runnable {
+                            if (player === thisPlayer &&
+                                thisPlayer.playbackState == Player.STATE_BUFFERING) {
+                                scheduleNextIncomingServer()
+                            }
                         }
-                        retryHandler.postDelayed(retryRunnable!!, 1200L)
+                        bufferingRetryRunnable = watchdog
+                        retryHandler.postDelayed(watchdog, 12000L)
+                    }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    // Never show an error for HANI TV alternate servers; move to the next one.
+                    if (incomingServerUrls.size > 1 &&
+                        incomingServerNames.size == incomingServerUrls.size) {
+                        bufferingRetryRunnable?.let { retryHandler.removeCallbacks(it) }
+                        bufferingRetryRunnable = null
+                        scheduleNextIncomingServer()
                         return
                     }
 
@@ -1312,6 +1314,26 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
 
 
 
+// Rotate to the next HANI TV server and keep retrying forever if all servers fail.
+private fun scheduleNextIncomingServer() {
+    if (incomingServerUrls.size < 2 || incomingServerNames.size != incomingServerUrls.size) return
+    retryRunnable?.let { retryHandler.removeCallbacks(it) }
+    incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
+    val nextIndex = incomingSelectedServer
+    val nextUrl = incomingServerUrls[nextIndex]
+    val nextReferer = incomingServerReferers.getOrNull(nextIndex).orEmpty()
+    val nextChannel = Channel(
+        incomingChannelName.ifBlank { "بث مباشر" }, nextUrl, "مباشر",
+        type = "live", referer = nextReferer
+    )
+    retryRunnable = Runnable {
+        channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
+        channels.add(nextChannel)
+        play(nextChannel)
+        fullscreenView?.player = player
+    }
+    retryHandler.postDelayed(retryRunnable!!, 1200L)
+}
 
 private fun showLibrary() {  
     val root = makeColumn()  
