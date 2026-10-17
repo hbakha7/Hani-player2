@@ -1240,8 +1240,8 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val httpFactory = DefaultHttpDataSource.Factory()
         .setDefaultRequestProperties(headers)
         .setAllowCrossProtocolRedirects(true)
-        .setConnectTimeoutMs(15000)
-        .setReadTimeoutMs(20000)
+        .setConnectTimeoutMs(6000)
+        .setReadTimeoutMs(12000)
 
     if (userAgent != null) {
         httpFactory.setUserAgent(userAgent)
@@ -1308,7 +1308,7 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                             }
                         }
                         serverStartupTimeout = timeout
-                        serverFailoverHandler.postDelayed(timeout, 12000L)
+                        serverFailoverHandler.postDelayed(timeout, 8000L)
                     }
                 }
             })
@@ -1324,8 +1324,8 @@ private fun scheduleNextServerAfterFailure(failedPlayer: ExoPlayer) {
 
     serverFailoverPending = true
     serverFailoverAttempts++
-    // Pause briefly between attempts; add a slightly longer pause after each full pass.
-    val delayMs = if (serverFailoverAttempts % incomingServerUrls.size == 0) 1800L else 500L
+    // Keep failover responsive: a short pause between servers, slightly longer after a full pass.
+    val delayMs = if (serverFailoverAttempts % incomingServerUrls.size == 0) 900L else 250L
     serverFailoverHandler.postDelayed({
         serverFailoverPending = false
         // A manual server selection or a newer player may have replaced this failed player.
