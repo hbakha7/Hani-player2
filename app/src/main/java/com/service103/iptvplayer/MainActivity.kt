@@ -43,7 +43,7 @@ import androidx.media3.common.TrackSelectionParameters
 data class Channel(
 val name: String,
 val url: String,
-val group: String = "Ø¹Ø§Ù…",
+val group: String = "عام",
 val logo: String = "",
 val type: String = "live",
 val id: String = "",
@@ -64,7 +64,7 @@ private var playerView: PlayerView? = null
 private var listContainer: LinearLayout? = null  
 private var statusView: TextView? = null  
 private var currentType = "live"  
-private var currentGroup = "Ø§Ù„ÙƒÙ„"  
+private var currentGroup = "الكل"  
 private var currentHost = ""  
 private var currentUser = ""  
 private var currentPass = ""  
@@ -112,7 +112,7 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
 
     val name = incoming.getStringExtra("name")
         ?: incoming.getStringExtra("channel_name")
-        ?: "ÙÙŠØ¯ÙŠÙˆ Ù…Ø³ØªÙ„Ù…"
+        ?: "فيديو مستلم"
 
     incomingServerNames = incoming.getStringArrayListExtra("server_names") ?: arrayListOf()
     incomingServerUrls = incoming.getStringArrayListExtra("server_urls") ?: arrayListOf()
@@ -126,8 +126,8 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
     saveHomeLink(name, link, link.substringBefore("?").endsWith(".m3u", true) ||
         link.substringBefore("?").endsWith(".m3u8", true), referer.orEmpty())
 
-    channels.removeAll { it.name == name && it.group == "Ù…Ø¨Ø§Ø´Ø±" }
-    channels.add(Channel(name, link, "Ù…Ø¨Ø§Ø´Ø±", type = "live", referer = referer))
+    channels.removeAll { it.name == name && it.group == "مباشر" }
+    channels.add(Channel(name, link, "مباشر", type = "live", referer = referer))
     window.decorView.post { playDirectFullscreen(link) }
 }  
 
@@ -224,7 +224,7 @@ private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
     }
     for (i in 0 until items.length()) {
         val item = items.optJSONObject(i) ?: continue
-        val name = item.optString("name", "Ø±Ø§Ø¨Ø· Ù…Ø­ÙÙˆØ¸").ifBlank { "Ø±Ø§Ø¨Ø· Ù…Ø­ÙÙˆØ¸" }
+        val name = item.optString("name", "رابط محفوظ").ifBlank { "رابط محفوظ" }
         val url = item.optString("url", "")
         val isM3u = item.optBoolean("m3u", false)
         if (url.isBlank()) continue
@@ -241,7 +241,7 @@ private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
                     loadM3u(url)
                 } else {
                     channels.clear()
-                    channels.add(Channel(name, url, "Ù…Ø¨Ø§Ø´Ø±", type = "live", referer = item.optString("referer", "")))
+                    channels.add(Channel(name, url, "مباشر", type = "live", referer = item.optString("referer", "")))
                     currentType = "live"
                     directLinkPlayback = true
                     val directPlayerView = PlayerView(this@MainActivity).apply {
@@ -261,7 +261,7 @@ private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
         }
 
         val playIcon = TextView(this).apply {
-            text = "â–¶"
+            text = "▶"
             textSize = 27f
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(85, 55, 15))
@@ -301,7 +301,7 @@ private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
         card.setOnLongClickListener {
             AlertDialog.Builder(this@MainActivity)
                 .setTitle(name)
-                .setItems(arrayOf("ØªØ´ØºÙŠÙ„", "Ø­Ø°Ù Ù…Ù† Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©")) { _, choice ->
+                .setItems(arrayOf("تشغيل", "حذف من الرئيسية")) { _, choice ->
                     if (choice == 0) card.performClick() else {
                         val current = getSavedLinks()
                         val kept = JSONArray()
@@ -334,7 +334,7 @@ val header = LinearLayout(this).apply {
 }  
 
 val menu = TextView(this).apply {  
-    text = "â˜°"  
+    text = "☰"  
     textSize = 28f  
     gravity = Gravity.CENTER  
     setTextColor(Color.WHITE)  
@@ -349,7 +349,7 @@ val title = TextView(this).apply {
 }  
 
 val search = TextView(this).apply {  
-    text = "âŒ•"  
+    text = "⌕"  
     textSize = 30f  
     gravity = Gravity.CENTER  
     setTextColor(Color.WHITE)  
@@ -421,11 +421,11 @@ fun navItem(symbol: String, caption: String, action: () -> Unit) {
     )  
 }  
 
-navItem("â—‰", "Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©") {
+navItem("◉", "الرئيسية") {
     renderSavedHomeLinks(content, empty)
 }  
 
-navItem("â–¶", "Ø§Ù„ÙˆØ³Ø§Ø¦Ø· Ø§Ù„Ù…Ø­Ù„ÙŠØ©") {  
+navItem("▶", "الوسائط المحلية") {  
     val intent = android.content.Intent(  
         android.content.Intent.ACTION_GET_CONTENT  
     ).apply {  
@@ -435,11 +435,11 @@ navItem("â–¶", "Ø§Ù„ÙˆØ³Ø§Ø¦Ø· Ø§Ù„Ù…Ø­Ù„ÙŠØ�
     try {  
         startActivityForResult(intent, 103)  
     } catch (_: Exception) {  
-        message("ØªØ¹Ø°Ø± ÙØªØ­ Ù…Ù„ÙØ§Øª Ø§Ù„ÙÙŠØ¯ÙŠÙˆ")  
+        message("تعذر فتح ملفات الفيديو")  
     }  
 }  
 
-navItem("+", "Ø¥Ø¶Ø§ÙØ©") {  
+navItem("+", "إضافة") {  
     showAddLinkForm()  
 }  
 
@@ -450,7 +450,7 @@ menu.setOnClickListener {
     AlertDialog.Builder(this)  
         .setTitle("103 IPTV Player")  
         .setItems(  
-            arrayOf("Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©", "Ø¥Ø¶Ø§ÙØ© Ø±Ø§Ø¨Ø·", "Ø§Ù„Ø±ÙˆØ§Ø¨Ø· Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø©")  
+            arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")  
         ) { _, which ->  
             when (which) {  
                 0 -> renderSavedHomeLinks(content, empty)  
@@ -463,34 +463,34 @@ menu.setOnClickListener {
 
 search.setOnClickListener {  
     val input = EditText(this).apply {  
-        hint = "Ø§Ø¨Ø­Ø« Ø¹Ù† Ù‚Ù†Ø§Ø© Ø£Ùˆ Ù…Ø­ØªÙˆÙ‰"  
+        hint = "ابحث عن قناة أو محتوى"  
         setTextColor(Color.WHITE)  
         setHintTextColor(Color.LTGRAY)  
     }  
 
     AlertDialog.Builder(this)  
-        .setTitle("Ø¨Ø­Ø«")  
+        .setTitle("بحث")  
         .setView(input)  
-        .setPositiveButton("Ø¨Ø­Ø«") { _, _ ->  
+        .setPositiveButton("بحث") { _, _ ->  
             val query = input.text.toString().trim()  
             val found = channels.filter {  
                 it.name.contains(query, ignoreCase = true)  
             }  
 
             if (found.isEmpty()) {  
-                message("Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù…Ø·Ø§Ø¨Ù‚Ø©")  
+                message("لا توجد نتائج مطابقة")  
             } else {  
                 AlertDialog.Builder(this)  
-                    .setTitle("Ù†ØªØ§Ø¦Ø¬ Ø§Ù„Ø¨Ø­Ø«")  
+                    .setTitle("نتائج البحث")  
                     .setItems(found.map { it.name }.toTypedArray()) { _, i ->  
                         play(found[i])  
                         openFullscreen()  
                     }  
-                    .setNegativeButton("Ø¥ØºÙ„Ø§Ù‚", null)  
+                    .setNegativeButton("إغلاق", null)  
                     .show()  
             }  
         }  
-        .setNegativeButton("Ø¥Ù„ØºØ§Ø¡", null)  
+        .setNegativeButton("إلغاء", null)  
         .show()  
 }
 
@@ -502,7 +502,7 @@ val scroll = ScrollView(this)
 val form = makeColumn()
 
 form.addView(  
-    label("Ø¥Ø¶Ø§ÙØ© Ø±Ø§Ø¨Ø· Ø¬Ø¯ÙŠØ¯", 22f, accent, true).apply {  
+    label("إضافة رابط جديد", 22f, accent, true).apply {  
         gravity = Gravity.CENTER  
     }  
 )  
@@ -568,7 +568,7 @@ val scheme = Spinner(this).apply {
     adapter = ArrayAdapter(  
         this@MainActivity,  
         android.R.layout.simple_spinner_dropdown_item,  
-        listOf("Ø§Ù„Ø±Ø§Ø¨Ø· ÙƒÙ…Ø§ Ù‡Ùˆ", "HTTP", "HTTPS")  
+        listOf("الرابط كما هو", "HTTP", "HTTPS")  
     )  
     background = rounded(Color.rgb(12, 30, 47), 5)  
 }  
@@ -581,7 +581,7 @@ form.addView(
 )  
 
 form.addView(label("DRM Scheme", 17f, white))
-val drmChoices = listOf("Ø¨Ø¯ÙˆÙ† DRM", "clearkey", "widevine", "playready")
+val drmChoices = listOf("بدون DRM", "clearkey", "widevine", "playready")
 val drmScheme = Spinner(this).apply {
     adapter = ArrayAdapter(
         this@MainActivity,
@@ -589,7 +589,7 @@ val drmScheme = Spinner(this).apply {
         drmChoices
     )
     background = rounded(Color.rgb(12, 30, 47), 5)
-    setSelection(drmChoices.indexOf(prefs.getString("add_drm_scheme", "Ø¨Ø¯ÙˆÙ† DRM")).let { if (it >= 0) it else 0 })
+    setSelection(drmChoices.indexOf(prefs.getString("add_drm_scheme", "بدون DRM")).let { if (it >= 0) it else 0 })
 }
 form.addView(
     drmScheme,
@@ -652,13 +652,13 @@ webPlayerCheck.setOnCheckedChangeListener { _, checked ->
 form.addView(row1)  
 form.addView(row2)  
 
-statusView = label("Ø¬Ø§Ù‡Ø²", 14f, accent)  
+statusView = label("جاهز", 14f, accent)  
 form.addView(statusView)  
 
-form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {  
+form.addView(button("تشغيل الرابط") {  
     val name = nameInput.text.toString().trim()
     if (name.isBlank()) {
-        message("Ø£Ø¯Ø®Ù„ Ø§Ø³Ù…Ù‹Ø§ Ù„Ù„Ø±Ø§Ø¨Ø· Ø­ØªÙ‰ ÙŠØ¸Ù‡Ø± ÙÙŠ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©")
+        message("أدخل اسمًا للرابط حتى يظهر في الرئيسية")
         nameInput.requestFocus()
         return@button
     }
@@ -666,7 +666,7 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
     var link = urlInput.text.toString().trim()  
 
     if (link.isBlank()) {  
-        message("Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø· Ø§Ù„ØªØ´ØºÙŠÙ„")  
+        message("أدخل رابط التشغيل")  
         return@button  
     }  
 
@@ -683,7 +683,7 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
 
     if (!link.startsWith("http://") &&  
         !link.startsWith("https://")) {  
-        message("Ø§Ù„Ø±Ø§Ø¨Ø· ØºÙŠØ± ØµØ­ÙŠØ­")  
+        message("الرابط غير صحيح")  
         return@button  
     }  
 
@@ -699,7 +699,7 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
         .putString("add_drm_scheme", drmScheme.selectedItem.toString())
         .apply()
 
-    // Ø­ÙØ¸ Ø§Ù„Ø§Ø³Ù… ÙˆØ§Ù„Ø±Ø§Ø¨Ø· ÙÙŠ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©ØŒ Ù…Ø¹ ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø±Ø§Ø¨Ø· Ø¨Ø¯Ù„ ØªÙƒØ±Ø§Ø±Ù‡.
+    // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
     if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
         saveHomeLink(name, link, m3uCheck.isChecked, referrerInput.text.toString())
     }
@@ -713,17 +713,17 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
                 )  
             )  
         } catch (_: Exception) {  
-            message("ØªØ¹Ø°Ø± ÙØªØ­ Ø§Ù„Ø±Ø§Ø¨Ø· ÙÙŠ Ø§Ù„Ù…ØªØµÙØ­")  
+            message("تعذر فتح الرابط في المتصفح")  
         }  
         return@button  
     }  
 
     if (webPlayerCheck.isChecked) {  
-        message("Ù…Ø´ØºÙ„ WEB PLAYER ØºÙŠØ± Ù…ÙØ¹Ù‘Ù„ Ø­Ø§Ù„ÙŠÙ‹Ø§")  
+        message("مشغل WEB PLAYER غير مفعّل حاليًا")  
         return@button  
     }  
 
-    // Ø­ÙØ¸ Ø­Ù‚ÙˆÙ„ Ø§Ù„Ø±Ø§Ø¨Ø· Ù„Ø¥ØªØ§Ø­ØªÙ‡Ø§ Ø¹Ù†Ø¯ ÙØªØ­ Ø§Ù„Ù†Ù…ÙˆØ°Ø¬ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰  
+    // حفظ حقول الرابط لإتاحتها عند فتح النموذج مرة أخرى  
     prefs.edit()  
         .putString("add_name", nameInput.text.toString())  
         .putString("add_url", link)  
@@ -744,16 +744,16 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
             Channel(  
                 name = name,  
                 url = link,  
-                group = "Ù…Ø¨Ø§Ø´Ø±",  
+                group = "مباشر",  
                 type = "live",  
                 referer = referrerInput.text.toString().trim()  
             )  
         )  
 
         currentType = "live"
-        currentGroup = "Ø§Ù„ÙƒÙ„"
+        currentGroup = "الكل"
 
-        // ØªØ¬Ø§ÙˆØ² ØµÙØ­Ø© Ø§Ù„Ù…ÙƒØªØ¨Ø© ØªÙ…Ø§Ù…Ù‹Ø§: Ø§ÙØªØ­ Ø§Ù„Ù…Ø´ØºÙ„ Ù…Ø¨Ø§Ø´Ø±Ø© Ø¨Ø¹Ø¯ Ø§Ù„Ø¶ØºØ· Ø¹Ù„Ù‰ "ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·".
+        // تجاوز صفحة المكتبة تمامًا: افتح المشغل مباشرة بعد الضغط على "تشغيل الرابط".
         directLinkPlayback = true
         val directPlayerView = PlayerView(this).apply {
             useController = false
@@ -775,7 +775,7 @@ form.addView(button("ØªØ´ØºÙŠÙ„ Ø§Ù„Ø±Ø§Ø¨Ø·") {
     }  
 })  
 
-form.addView(button("Ø±Ø¬ÙˆØ¹ Ù„Ù„Ø±Ø¦ÙŠØ³ÙŠØ©") {  
+form.addView(button("رجوع للرئيسية") {  
     buildHome()  
 })  
 
@@ -801,24 +801,24 @@ private fun askM3u() {
     input.setText(saved)  
 
     AlertDialog.Builder(this)  
-        .setTitle("Ø¥Ø¶Ø§ÙØ© Ù‚Ø§Ø¦Ù…Ø© M3U")  
+        .setTitle("إضافة قائمة M3U")  
         .setView(input)  
-        .setNegativeButton("Ø¥Ù„ØºØ§Ø¡", null)  
-        .setPositiveButton("ØªØ­Ù…ÙŠÙ„") { _, _ ->  
+        .setNegativeButton("إلغاء", null)  
+        .setPositiveButton("تحميل") { _, _ ->  
             val link = input.text.toString().trim()  
             if (link.startsWith("http://") ||  
                 link.startsWith("https://")) {  
                 prefs.edit().putString("last_m3u", link).apply()  
                 loadM3u(link)  
             } else {  
-                message("Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø·Ù‹Ø§ ØµØ­ÙŠØ­Ù‹Ø§ ÙŠØ¨Ø¯Ø£ Ø¨Ù€ http Ø£Ùˆ https")  
+                message("أدخل رابطًا صحيحًا يبدأ بـ http أو https")  
             }  
         }.show()  
 }
 
 private fun askDirect() {
 val input = EditText(this).apply {
-hint = "Ø±Ø§Ø¨Ø· ÙÙŠØ¯ÙŠÙˆ MP4 Ø£Ùˆ M3U8"
+hint = "رابط فيديو MP4 أو M3U8"
 setTextColor(white)
 setHintTextColor(muted)
 inputType = InputType.TYPE_CLASS_TEXT or
@@ -826,10 +826,10 @@ InputType.TYPE_TEXT_VARIATION_URI
 }
 
 AlertDialog.Builder(this)  
-    .setTitle("ØªØ´ØºÙŠÙ„ Ø±Ø§Ø¨Ø· Ù…Ø¨Ø§Ø´Ø±")  
+    .setTitle("تشغيل رابط مباشر")  
     .setView(input)  
-    .setNegativeButton("Ø¥Ù„ØºØ§Ø¡", null)  
-    .setPositiveButton("ØªØ´ØºÙŠÙ„") { _, _ ->  
+    .setNegativeButton("إلغاء", null)  
+    .setPositiveButton("تشغيل") { _, _ ->  
         val link = input.text.toString().trim()  
 
         if (link.startsWith("http://") ||  
@@ -837,7 +837,7 @@ AlertDialog.Builder(this)
 
             channels.clear()  
             channels.add(  
-                Channel("ÙÙŠØ¯ÙŠÙˆ Ù…Ø¨Ø§Ø´Ø±", link, "Ù…Ø¨Ø§Ø´Ø±")  
+                Channel("فيديو مباشر", link, "مباشر")  
             )  
 
             currentType = "live"
@@ -845,7 +845,7 @@ AlertDialog.Builder(this)
 playDirectFullscreen(link)
 
 } else {  
-            message("Ø§Ù„Ø±Ø§Ø¨Ø· ØºÙŠØ± ØµØ­ÙŠØ­")  
+            message("الرابط غير صحيح")  
         }  
     }  
     .show()
@@ -855,9 +855,9 @@ playDirectFullscreen(link)
 private fun playDirectFullscreen(link: String) {
     val channel = channels.firstOrNull { it.url == link }
         ?: Channel(
-            name = incomingChannelName.ifBlank { "ÙÙŠØ¯ÙŠÙˆ Ù…Ø¨Ø§Ø´Ø±" },
+            name = incomingChannelName.ifBlank { "فيديو مباشر" },
             url = link,
-            group = "Ù…Ø¨Ø§Ø´Ø±",
+            group = "مباشر",
             type = "live"
         )
 
@@ -887,7 +887,7 @@ private fun askXtream() {
     val layout = makeColumn()  
 
     val host = EditText(this).apply {  
-        hint = "Server URL Ù…Ø«Ù„ http://server:8080"  
+        hint = "Server URL مثل http://server:8080"  
         setTextColor(white)  
         setHintTextColor(muted)  
         inputType = InputType.TYPE_CLASS_TEXT or  
@@ -895,13 +895,13 @@ private fun askXtream() {
     }  
 
     val user = EditText(this).apply {  
-        hint = "Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…"  
+        hint = "اسم المستخدم"  
         setTextColor(white)  
         setHintTextColor(muted)  
     }  
 
     val pass = EditText(this).apply {  
-        hint = "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±"  
+        hint = "كلمة المرور"  
         setTextColor(white)  
         setHintTextColor(muted)  
         inputType = InputType.TYPE_CLASS_TEXT or  
@@ -916,10 +916,10 @@ private fun askXtream() {
     layout.addView(pass)  
 
     AlertDialog.Builder(this)  
-        .setTitle("Ø§ØªØµØ§Ù„ Xtream Codes")  
+        .setTitle("اتصال Xtream Codes")  
         .setView(layout)  
-        .setNegativeButton("Ø¥Ù„ØºØ§Ø¡", null)  
-        .setPositiveButton("Ø§ØªØµØ§Ù„ ÙˆØ­ÙØ¸") { _, _ ->  
+        .setNegativeButton("إلغاء", null)  
+        .setPositiveButton("اتصال وحفظ") { _, _ ->  
             val h = host.text.toString().trim().trimEnd('/')  
             val u = user.text.toString().trim()  
             val p = pass.text.toString()  
@@ -927,7 +927,7 @@ private fun askXtream() {
             if (!(h.startsWith("http://") ||  
                 h.startsWith("https://")) ||  
                 u.isBlank() || p.isBlank()) {  
-                message("ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø®Ø§Ø¯Ù… ÙˆØ§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±")  
+                message("تحقق من الخادم واسم المستخدم وكلمة المرور")  
                 return@setPositiveButton  
             }  
 
@@ -947,25 +947,25 @@ private fun askXtream() {
 
 private fun showSaved() {  
     val options = arrayOf(  
-        "Ø¢Ø®Ø± Ù‚Ø§Ø¦Ù…Ø© M3U",  
-        "Ø­Ø³Ø§Ø¨ Xtream Ø§Ù„Ù…Ø­ÙÙˆØ¸"  
+        "آخر قائمة M3U",  
+        "حساب Xtream المحفوظ"  
     )  
 
     AlertDialog.Builder(this)  
-        .setTitle("Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø§Øª")  
+        .setTitle("المحفوظات")  
         .setItems(options) { _, which ->  
             when (which) {  
                 0 -> {  
                     val link = prefs.getString("last_m3u", "")  
                     if (!link.isNullOrBlank()) loadM3u(link)  
-                    else message("Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ø§Ø¦Ù…Ø© Ù…Ø­ÙÙˆØ¸Ø©")  
+                    else message("لا توجد قائمة محفوظة")  
                 }  
                 1 -> {  
                     val h = prefs.getString("xt_host", "") ?: ""  
                     val u = prefs.getString("xt_user", "") ?: ""  
                     val p = prefs.getString("xt_pass", "") ?: ""  
                     if (h.isBlank() || u.isBlank() || p.isBlank()) {  
-                        message("Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø­Ø³Ø§Ø¨ Xtream Ù…Ø­ÙÙˆØ¸")  
+                        message("لا يوجد حساب Xtream محفوظ")  
                     } else {  
                         currentHost = h  
                         currentUser = u  
@@ -978,7 +978,7 @@ private fun showSaved() {
 }  
 
 private fun loadM3u(link: String) {  
-    setStatus("Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©...")  
+    setStatus("جارٍ تحميل القائمة...")  
 
     lifecycleScope.launch {  
         try {  
@@ -1004,7 +1004,7 @@ private fun loadM3u(link: String) {
 
             val parsed = parseM3u(data)  
             if (parsed.isEmpty()) {  
-                setStatus("Ù„Ù… Ù†Ø¬Ø¯ Ø±ÙˆØ§Ø¨Ø· ØµØ§Ù„Ø­Ø© ÙÙŠ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©")  
+                setStatus("لم نجد روابط صالحة في القائمة")  
                 return@launch  
             }  
 
@@ -1012,31 +1012,31 @@ private fun loadM3u(link: String) {
             channels.addAll(parsed)  
             currentType = "live"  
             showLibrary()  
-            setStatus("ØªÙ… ØªØ­Ù…ÙŠÙ„ ${parsed.size} Ø±Ø§Ø¨Ø·Ù‹Ø§")  
+            setStatus("تم تحميل ${parsed.size} رابطًا")  
         } catch (e: Exception) {  
-            setStatus("ÙØ´Ù„ ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©")  
-            message("ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©:\n${e.message}")  
+            setStatus("فشل تحميل القائمة")  
+            message("تعذر تحميل القائمة:\n${e.message}")  
         }  
     }  
 }  
 
 private fun parseM3u(data: String): List<Channel> {  
     val out = mutableListOf<Channel>()  
-    var name = "Ù‚Ù†Ø§Ø©"  
-    var group = "Ø¹Ø§Ù…"  
+    var name = "قناة"  
+    var group = "عام"  
     var logo = ""  
 
     data.lineSequence().forEach { raw ->  
         val line = raw.trim()  
 
         if (line.startsWith("#EXTINF", true)) {  
-            name = line.substringAfter(",", "Ù‚Ù†Ø§Ø©")  
-                .trim().ifBlank { "Ù‚Ù†Ø§Ø©" }  
+            name = line.substringAfter(",", "قناة")  
+                .trim().ifBlank { "قناة" }  
 
             group = Regex(  
                 """group-title=["']([^"']+)["']""",  
                 RegexOption.IGNORE_CASE  
-            ).find(line)?.groupValues?.get(1) ?: "Ø¹Ø§Ù…"  
+            ).find(line)?.groupValues?.get(1) ?: "عام"  
 
             logo = Regex(  
                 """tvg-logo=["']([^"']+)["']""",  
@@ -1049,8 +1049,8 @@ private fun parseM3u(data: String): List<Channel> {
             out.add(  
                 Channel(name, line, group, logo, "live")  
             )  
-            name = "Ù‚Ù†Ø§Ø©"  
-            group = "Ø¹Ø§Ù…"  
+            name = "قناة"  
+            group = "عام"  
             logo = ""  
         }  
     }  
@@ -1060,7 +1060,7 @@ private fun parseM3u(data: String): List<Channel> {
 
 private fun loadXtream(type: String) {  
     currentType = type  
-    setStatus("Ø¬Ø§Ø±Ù Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø®Ø§Ø¯Ù… Xtream...")  
+    setStatus("جارٍ الاتصال بخادم Xtream...")  
 
     lifecycleScope.launch {  
         try {  
@@ -1109,12 +1109,12 @@ private fun loadXtream(type: String) {
 
                 if (id.isBlank() || id == "null") continue  
 
-                val name = obj.optString("name", "Ù…Ø­ØªÙˆÙ‰")  
+                val name = obj.optString("name", "محتوى")  
                 val group = obj.optString(  
                     "category_name",  
-                    if (type == "live") "Ù‚Ù†ÙˆØ§Øª Ù…Ø¨Ø§Ø´Ø±Ø©"  
-                    else if (type == "movie") "Ø£ÙÙ„Ø§Ù…"  
-                    else "Ù…Ø³Ù„Ø³Ù„Ø§Øª"  
+                    if (type == "live") "قنوات مباشرة"  
+                    else if (type == "movie") "أفلام"  
+                    else "مسلسلات"  
                 )  
 
                 val logo = obj.optString(  
@@ -1143,9 +1143,9 @@ private fun loadXtream(type: String) {
             }  
 
             if (parsed.isEmpty()) {  
-                setStatus("Ù„Ù… ÙŠØ±Ø¬Ø¹ Ø§Ù„Ø®Ø§Ø¯Ù… Ø£ÙŠ Ø¹Ù†Ø§ØµØ±")  
+                setStatus("لم يرجع الخادم أي عناصر")  
                 message(  
-                    "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù…Ø­ØªÙˆÙ‰. ØªØ­Ù‚Ù‚ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØµÙ„Ø§Ø­ÙŠØ§ØªÙ‡."  
+                    "لم يتم العثور على محتوى. تحقق من بيانات الحساب وصلاحياته."  
                 )  
                 return@launch  
             }  
@@ -1153,12 +1153,12 @@ private fun loadXtream(type: String) {
             channels.clear()  
             channels.addAll(parsed)  
             showLibrary()  
-            setStatus("ØªÙ… ØªØ­Ù…ÙŠÙ„ ${parsed.size} Ø¹Ù†ØµØ±Ù‹Ø§")  
+            setStatus("تم تحميل ${parsed.size} عنصرًا")  
         } catch (e: Exception) {  
-            setStatus("ØªØ¹Ø°Ø± Ø§Ù„Ø§ØªØµØ§Ù„")  
+            setStatus("تعذر الاتصال")  
             message(  
-                "ÙØ´Ù„ Ø§ØªØµØ§Ù„ Xtream:\n" +  
-                (e.message ?: "ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø®Ø§Ø¯Ù… ÙˆØ§Ù„Ø¨ÙŠØ§Ù†Ø§Øª")  
+                "فشل اتصال Xtream:\n" +  
+                (e.message ?: "تحقق من الخادم والبيانات")  
             )  
         }  
     }  
@@ -1258,7 +1258,7 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                     val causeDetails = generateSequence<Throwable>(error) { it.cause }
                         .take(6)
                         .joinToString("\n") { cause ->
-                            "${cause.javaClass.simpleName}: ${cause.message ?: "Ø¨Ø¯ÙˆÙ† ØªÙØ§ØµÙŠÙ„"}"
+                            "${cause.javaClass.simpleName}: ${cause.message ?: "بدون تفاصيل"}"
                         }
                     val responseHeaders = details?.headerFields
                         ?.entries
@@ -1267,12 +1267,12 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                         .orEmpty()
 
                     val diagnostic = buildString {
-                        append("ØªØ¹Ø°Ø± Ø§Ù„ØªØ´ØºÙŠÙ„: ${error.errorCodeName}")
+                        append("تعذر التشغيل: ${error.errorCodeName}")
                         if (status != null) append("\nHTTP: $status")
                         if (responseHeaders.isNotBlank()) append("\n$responseHeaders")
-                        append("\n\nØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø®Ø·Ø£:\n$causeDetails")
+                        append("\n\nتفاصيل الخطأ:\n$causeDetails")
                         if (error.errorCodeName.contains("PARSING_CONTAINER", true)) {
-                            append("\n\nÙ‡Ø°Ø§ Ø§Ù„Ø®Ø·Ø£ Ù„Ø§ ÙŠØ«Ø¨Øª Ø£Ù† Referer ÙˆØ­Ø¯Ù‡ Ù‡Ùˆ Ø§Ù„Ø³Ø¨Ø¨. Ù‚Ø¯ ØªÙƒÙˆÙ† Ø§Ø³ØªØ¬Ø§Ø¨Ø© Ø§Ù„Ø®Ø§Ø¯Ù… ØºÙŠØ± ÙÙŠØ¯ÙŠÙˆ Ø£Ùˆ Ø£Ù† ØµÙŠØºØ© Ø§Ù„Ø¨Ø« ØºÙŠØ± Ù…Ø¯Ø¹ÙˆÙ…Ø©.")
+                            append("\n\nهذا الخطأ لا يثبت أن Referer وحده هو السبب. قد تكون استجابة الخادم غير فيديو أو أن صيغة البث غير مدعومة.")
                         }
                     }
                     message(diagnostic)
@@ -1298,9 +1298,9 @@ private fun showLibrary() {
     }  
 
     listOf(  
-        "Ù…Ø¨Ø§Ø´Ø±" to "live",  
-        "Ø£ÙÙ„Ø§Ù…" to "movie",  
-        "Ù…Ø³Ù„Ø³Ù„Ø§Øª" to "series"  
+        "مباشر" to "live",  
+        "أفلام" to "movie",  
+        "مسلسلات" to "series"  
     ).forEach { (caption, type) ->  
         val b = Button(this).apply {  
             text = caption  
@@ -1337,15 +1337,15 @@ private fun showLibrary() {
     }  
     content.addView(playerView)  
 
-    content.addView(button("â›¶ Ù…Ù„Ø¡ Ø§Ù„Ø´Ø§Ø´Ø©") {  
+    content.addView(button("⛶ ملء الشاشة") {  
         openFullscreen()  
     })  
 
-    content.addView(button("Ø§Ù„ØµÙˆØª: Ø±ÙØ¹ / Ø®ÙØ¶") {  
+    content.addView(button("الصوت: رفع / خفض") {  
         showVolume()  
     })  
 
-    val groupLabel = label("Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø©", 14f, muted)  
+    val groupLabel = label("المجموعة", 14f, muted)  
     content.addView(groupLabel)  
 
     val groups = channels.map { it.group }.distinct()  
@@ -1353,7 +1353,7 @@ private fun showLibrary() {
     spinner.adapter = ArrayAdapter(  
         this,  
         android.R.layout.simple_spinner_dropdown_item,  
-        listOf("Ø§Ù„ÙƒÙ„") + groups  
+        listOf("الكل") + groups  
     )  
     content.addView(spinner)  
 
@@ -1397,7 +1397,7 @@ private fun renderItems() {
     list.removeAllViews()  
 
     val filtered = channels.filter {  
-        currentGroup == "Ø§Ù„ÙƒÙ„" || it.group == currentGroup  
+        currentGroup == "الكل" || it.group == currentGroup  
     }.take(200)  
 
     filtered.forEach { ch ->  
@@ -1462,7 +1462,7 @@ private fun renderItems() {
     if (channels.size > 200) {  
         list.addView(  
             label(  
-                "ØªØ¸Ù‡Ø± Ø£ÙˆÙ„ 200 Ù†ØªÙŠØ¬Ø© Ù„ØªÙ‚Ù„ÙŠÙ„ Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ Ø§Ù„Ø°Ø§ÙƒØ±Ø©.",  
+                "تظهر أول 200 نتيجة لتقليل استهلاك الذاكرة.",  
                 12f, muted  
             )  
         )  
@@ -1502,19 +1502,19 @@ private fun loadEpisodes(series: Channel) {
                         "container_extension", "mp4"  
                     )  
                     val name = ep.optString(  
-                        "title", "Ø­Ù„Ù‚Ø© ${i + 1}"  
+                        "title", "حلقة ${i + 1}"  
                     )  
                     val url =  
                         "$currentHost/series/${enc(currentUser)}" +  
                         "/${enc(currentPass)}/$id.$ext"  
                     choices.add(  
-                        Channel(name, url, "Ø§Ù„Ø­Ù„Ù‚Ø§Øª", "", "episode")  
+                        Channel(name, url, "الحلقات", "", "episode")  
                     )  
                 }  
             }  
 
             if (choices.isEmpty()) {  
-                message("Ù„Ù… ÙŠØ¹Ø«Ø± Ø§Ù„Ø®Ø§Ø¯Ù… Ø¹Ù„Ù‰ Ø­Ù„Ù‚Ø§Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³Ù„Ø³Ù„")  
+                message("لم يعثر الخادم على حلقات لهذا المسلسل")  
                 return@launch  
             }  
 
@@ -1525,17 +1525,17 @@ private fun loadEpisodes(series: Channel) {
                 ) { _, which ->  
                     play(choices[which])  
                 }  
-                .setNegativeButton("Ø¥ØºÙ„Ø§Ù‚", null)  
+                .setNegativeButton("إغلاق", null)  
                 .show()  
         } catch (e: Exception) {  
-            message("ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø­Ù„Ù‚Ø§Øª:\n${e.message}")  
+            message("تعذر تحميل الحلقات:\n${e.message}")  
         }  
     }  
 }
 
 private fun play(ch: Channel) {
 try {
-// Ø¥Ù†Ø´Ø§Ø¡ Ù…Ø´ØºÙ‘Ù„ Ø¬Ø¯ÙŠØ¯ Ù„Ø¶Ù…Ø§Ù† ØªØ·Ø¨ÙŠÙ‚ Ø±Ø¤ÙˆØ³ Ø§Ù„Ø·Ù„Ø¨Ø§Øª Ø§Ù„Ø­Ø§Ù„ÙŠØ©
+// إنشاء مشغّل جديد لضمان تطبيق رؤوس الطلبات الحالية
 playerView?.player = null
 player?.release()
 player = createPlaybackPlayer(ch.referer)
@@ -1564,11 +1564,11 @@ if (playerView == null) {
         itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
     }
 
-    val drmName = prefs.getString("add_drm_scheme", "Ø¨Ø¯ÙˆÙ† DRM").orEmpty().lowercase()
+    val drmName = prefs.getString("add_drm_scheme", "بدون DRM").orEmpty().lowercase()
     val licenseUrl = prefs.getString("add_license", "").orEmpty().trim()
-    if (drmName != "Ø¨Ø¯ÙˆÙ† drm" && drmName.isNotBlank()) {
+    if (drmName != "بدون drm" && drmName.isNotBlank()) {
         if (licenseUrl.isBlank()) {
-            message("Ø§Ø®ØªØ±Øª DRM Ù„ÙƒÙ† Ø®Ø§Ù†Ø© License ÙØ§Ø±ØºØ©. Ø£Ø¯Ø®Ù„ Ø±Ø§Ø¨Ø· Ø®Ø§Ø¯Ù… Ø§Ù„ØªØ±Ø®ÙŠØµ.")
+            message("اخترت DRM لكن خانة License فارغة. أدخل رابط خادم الترخيص.")
             return
         }
         val drmUuid: UUID = when (drmName) {
@@ -1576,7 +1576,7 @@ if (playerView == null) {
             "widevine" -> C.WIDEVINE_UUID
             "playready" -> C.PLAYREADY_UUID
             else -> {
-                message("Ù†ÙˆØ¹ DRM ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ")
+                message("نوع DRM غير معروف")
                 return
             }
         }
@@ -1594,13 +1594,13 @@ if (playerView == null) {
     player?.prepare()  
     player?.playWhenReady = true  
 
-    setStatus("Ù‚ÙŠØ¯ Ø§Ù„ØªØ´ØºÙŠÙ„: ${ch.name}")
-    // Ø§ÙØªØ­ Ø§Ù„Ø¨Ø« Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ø¨Ø§Ù„Ø¹Ø±Ø¶ ÙˆÙ…Ù„Ø¡ Ø§Ù„Ø´Ø§Ø´Ø© Ù…Ø¨Ø§Ø´Ø±Ø©.
+    setStatus("قيد التشغيل: ${ch.name}")
+    // افتح البث المباشر بالعرض وملء الشاشة مباشرة.
     if (ch.type == "live") {
         playerView?.post { openFullscreen() }
     }
 } catch (e: Exception) {  
-    message("ØªØ¹Ø°Ø± Ø¨Ø¯Ø¡ Ø§Ù„ØªØ´ØºÙŠÙ„:\n${e.message}")  
+    message("تعذر بدء التشغيل:\n${e.message}")  
 }
 
 }
@@ -1621,7 +1621,7 @@ private fun openFullscreen() {
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        // Make "Ù…Ù„Ø¡ Ø§Ù„ØµÙˆØ±Ø©" the default mode whenever fullscreen playback opens.
+        // Make "ملء الصورة" the default mode whenever fullscreen playback opens.
         resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
         keepScreenOn = true
         setShutterBackgroundColor(Color.BLACK)
@@ -1648,8 +1648,8 @@ private fun openFullscreen() {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(8), dp(2), dp(8), dp(2))
     }
-    val back = textButton("â€¹", 36f).apply {
-        contentDescription = "Ø±Ø¬ÙˆØ¹"
+    val back = textButton("‹", 36f).apply {
+        contentDescription = "رجوع"
         setOnClickListener { dialog.dismiss() }
     }
     topBar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
@@ -1682,9 +1682,9 @@ private fun openFullscreen() {
                     incomingSelectedServer = index
                     val targetUrl = incomingServerUrls.getOrNull(index) ?: return@setOnClickListener
                     val targetReferer = incomingServerReferers.getOrNull(index).orEmpty()
-                    val channel = Channel(incomingChannelName.ifBlank { "Ø¨Ø« Ù…Ø¨Ø§Ø´Ø±" }, targetUrl,
-                        "Ù…Ø¨Ø§Ø´Ø±", type = "live", referer = targetReferer)
-                    channels.removeAll { it.name == channel.name && it.group == "Ù…Ø¨Ø§Ø´Ø±" }
+                    val channel = Channel(incomingChannelName.ifBlank { "بث مباشر" }, targetUrl,
+                        "مباشر", type = "live", referer = targetReferer)
+                    channels.removeAll { it.name == channel.name && it.group == "مباشر" }
                     channels.add(channel)
                     play(channel)
                     fullPlayer.player = player
@@ -1709,26 +1709,26 @@ private fun openFullscreen() {
 
     var showControls: () -> Unit = {}
 
-    val pauseButton = textButton("â…¡", 31f).apply {
-        contentDescription = "ØªØ´ØºÙŠÙ„ Ø£Ùˆ Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª"
+    val pauseButton = textButton("Ⅱ", 31f).apply {
+        contentDescription = "تشغيل أو إيقاف مؤقت"
         setOnClickListener {
             val p = player ?: return@setOnClickListener
             if (p.isPlaying) p.pause() else p.play()
-            text = if (p.isPlaying) "â…¡" else "â–¶"
+            text = if (p.isPlaying) "Ⅱ" else "▶"
             showControls()
         }
     }
 
-    val rewindButton = textButton("â†¶\n10", 15f).apply {
-        contentDescription = "Ø±Ø¬ÙˆØ¹ 10 Ø«ÙˆØ§Ù†Ù"
+    val rewindButton = textButton("↶\n10", 15f).apply {
+        contentDescription = "رجوع 10 ثوانٍ"
         setOnClickListener {
             val p = player ?: return@setOnClickListener
             p.seekTo((p.currentPosition - 10_000L).coerceAtLeast(0L))
             showControls()
         }
     }
-    val forwardButton = textButton("â†·\n10", 15f).apply {
-        contentDescription = "ØªÙ‚Ø¯ÙŠÙ… 10 Ø«ÙˆØ§Ù†Ù"
+    val forwardButton = textButton("↷\n10", 15f).apply {
+        contentDescription = "تقديم 10 ثوانٍ"
         setOnClickListener {
             val p = player ?: return@setOnClickListener
             val d = p.duration
@@ -1756,43 +1756,43 @@ private fun openFullscreen() {
         actionBar.addView(view, LinearLayout.LayoutParams(dp(width), dp(46)))
     }
 
-    val cast = textButton("â–£", 25f).apply {
-        contentDescription = "Ø§Ù„Ø¨Ø« Ø¥Ù„Ù‰ Ø´Ø§Ø´Ø© Ø£Ø®Ø±Ù‰"
+    val cast = textButton("▣", 25f).apply {
+        contentDescription = "البث إلى شاشة أخرى"
         setOnClickListener {
-            message("Ù„Ø¥Ø¶Ø§ÙØ© Chromecast ÙŠÙ„Ø²Ù… Ø±Ø¨Ø· Ù…ÙƒØªØ¨Ø© Google Cast Ø¨Ø§Ù„ØªØ·Ø¨ÙŠÙ‚.")
+            message("لإضافة Chromecast يلزم ربط مكتبة Google Cast بالتطبيق.")
             showControls()
         }
     }
-    val audioTracks = textButton("â—‰", 24f).apply {
-        contentDescription = "Ù…Ø³Ø§Ø±Ø§Øª Ø§Ù„ØµÙˆØª ÙˆØ§Ù„ØªØ±Ø¬Ù…Ø©"
+    val audioTracks = textButton("◉", 24f).apply {
+        contentDescription = "مسارات الصوت والترجمة"
         setOnClickListener {
             val p = player
             if (p == null) return@setOnClickListener
             val tracks = p.currentTracks
             val details = tracks.groups.joinToString("\n") { group ->
                 val type = when (group.type) {
-                    C.TRACK_TYPE_AUDIO -> "ØµÙˆØª"
-                    C.TRACK_TYPE_TEXT -> "ØªØ±Ø¬Ù…Ø©"
-                    C.TRACK_TYPE_VIDEO -> "ÙÙŠØ¯ÙŠÙˆ"
-                    else -> "Ù…Ø³Ø§Ø±"
+                    C.TRACK_TYPE_AUDIO -> "صوت"
+                    C.TRACK_TYPE_TEXT -> "ترجمة"
+                    C.TRACK_TYPE_VIDEO -> "فيديو"
+                    else -> "مسار"
                 }
-                "$type: ${group.length} Ø®ÙŠØ§Ø±"
-            }.ifBlank { "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø³Ø§Ø±Ø§Øª Ø¥Ø¶Ø§ÙÙŠØ© Ù…ØªØ§Ø­Ø©." }
+                "$type: ${group.length} خيار"
+            }.ifBlank { "لا توجد مسارات إضافية متاحة." }
             message(details)
             showControls()
         }
     }
-    val settings = textButton("âš™", 25f).apply {
-        contentDescription = "Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…Ø´ØºÙ„"
+    val settings = textButton("⚙", 25f).apply {
+        contentDescription = "إعدادات المشغل"
         setOnClickListener {
             val popup = PopupMenu(this@MainActivity, this)
-            listOf("Ù…Ù„Ø§Ø¡Ù…Ø© Ø§Ù„Ø´Ø§Ø´Ø©", "Ù…Ù„Ø¡ Ø§Ù„ØµÙˆØ±Ø©", "ØªÙƒØ¨ÙŠØ± Ø§Ù„ØµÙˆØ±Ø©", "Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ø¨Ø«").forEach { popup.menu.add(it) }
+            listOf("ملاءمة الشاشة", "ملء الصورة", "تكبير الصورة", "معلومات البث").forEach { popup.menu.add(it) }
             popup.setOnMenuItemClickListener { item ->
                 when (item.title.toString()) {
-                    "Ù…Ù„Ø§Ø¡Ù…Ø© Ø§Ù„Ø´Ø§Ø´Ø©" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    "Ù…Ù„Ø¡ Ø§Ù„ØµÙˆØ±Ø©" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                    "ØªÙƒØ¨ÙŠØ± Ø§Ù„ØµÙˆØ±Ø©" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    "Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ø¨Ø«" -> message("${player?.currentMediaItem?.mediaId.orEmpty()}\n${player?.videoFormat?.width ?: 0} Ã— ${player?.videoFormat?.height ?: 0}")
+                    "ملاءمة الشاشة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    "ملء الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    "تكبير الصورة" -> fullPlayer.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    "معلومات البث" -> message("${player?.currentMediaItem?.mediaId.orEmpty()}\n${player?.videoFormat?.width ?: 0} × ${player?.videoFormat?.height ?: 0}")
                 }
                 true
             }
@@ -1800,12 +1800,12 @@ private fun openFullscreen() {
             showControls()
         }
     }
-    val fullscreen = textButton("â›¶", 27f).apply {
-        contentDescription = "Ø¥ØºÙ„Ø§Ù‚ Ù…Ù„Ø¡ Ø§Ù„Ø´Ø§Ø´Ø©"
+    val fullscreen = textButton("⛶", 27f).apply {
+        contentDescription = "إغلاق ملء الشاشة"
         setOnClickListener { dialog.dismiss() }
     }
-    val display = textButton("â–­", 26f).apply {
-        contentDescription = "ØªØºÙŠÙŠØ± Ù†Ù…Ø· Ø¹Ø±Ø¶ Ø§Ù„ÙÙŠØ¯ÙŠÙˆ"
+    val display = textButton("▭", 26f).apply {
+        contentDescription = "تغيير نمط عرض الفيديو"
         setOnClickListener {
             fullPlayer.resizeMode = when (fullPlayer.resizeMode) {
                 androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT ->
@@ -1903,7 +1903,7 @@ private fun openFullscreen() {
                     } else if (d <= 0 || d == C.TIME_UNSET) {
                         seek.progress = 0
                     }
-                    pauseButton.text = if (p.isPlaying) "â…¡" else "â–¶"
+                    pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
                 }
                 handler.postDelayed(this, 500)
             }
@@ -1981,9 +1981,9 @@ private fun showVolume() {
     }  
 
     AlertDialog.Builder(this)  
-        .setTitle("Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØµÙˆØª")  
+        .setTitle("مستوى الصوت")  
         .setView(seek)  
-        .setPositiveButton("ØªÙ…", null)  
+        .setPositiveButton("تم", null)  
         .show()  
 
     seek.setOnSeekBarChangeListener(  
@@ -2014,7 +2014,7 @@ private fun message(value: String) {
     if (isFinishing) return  
     AlertDialog.Builder(this)  
         .setMessage(value)  
-        .setPositiveButton("Ø­Ø³Ù†Ù‹Ø§", null)  
+        .setPositiveButton("حسنًا", null)  
         .show()  
 }  
 
