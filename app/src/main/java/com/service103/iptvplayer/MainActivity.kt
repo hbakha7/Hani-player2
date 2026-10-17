@@ -75,7 +75,13 @@ private var incomingServerUrls = arrayListOf<String>()
 private var incomingServerReferers = arrayListOf<String>()
 private var incomingSelectedServer = 0
 private var incomingChannelName = ""
-private var fullscreenView: PlayerView? = null  
+// Automatically rotate through the received server URLs after playback errors.
+private val serverFailoverHandler = Handler(Looper.getMainLooper())
+private var serverFailoverPending = false
+private var serverFailoverAttempts = 0
+private var serverStartupTimeout: Runnable? = null
+private var fullscreenView: PlayerView? = null
+private var serverButtonsBar: LinearLayout? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
 private var savedLayoutParams: ViewGroup.LayoutParams? = null  
@@ -863,6 +869,10 @@ private fun playDirectFullscreen(link: String) {
 
     currentType = "live"
     directLinkPlayback = true
+    serverFailoverHandler.removeCallbacksAndMessages(null)
+    serverStartupTimeout = null
+    serverFailoverPending = false
+    serverFailoverAttempts = 0
 
     // Create only a black player surface; do not open the library/home screen.
     val directPlayerView = PlayerView(this).apply {
@@ -1275,14 +1285,93 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                             append("\n\nهذا الخطأ لا يثبت أن Referer وحده هو السبب. قد تكون استجابة الخادم غير فيديو أو أن صيغة البث غير مدعومة.")
                         }
                     }
-                    message(diagnostic)
+                    // For links that provide multiple servers, silently try the next
+                    // server instead of showing an error dialog to the viewer.
+                    if (directLinkPlayback && incomingServerUrls.size > 1) {
+                        scheduleNextServerAfterFailure(exo)
+                    } else {
+                        message(diagnostic)
+                    }
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (player !== exo || !directLinkPlayback || incomingServerUrls.size < 2) return
+                    if (playbackState == Player.STATE_READY) {
+                        serverStartupTimeout?.let { serverFailoverHandler.removeCallbacks(it) }
+                        serverStartupTimeout = null
+                        serverFailoverAttempts = 0
+                    } else if (playbackState == Player.STATE_BUFFERING) {
+                        serverStartupTimeout?.let { serverFailoverHandler.removeCallbacks(it) }
+                        val timeout = Runnable {
+                            if (player === exo && exo.playbackState != Player.STATE_READY && !exo.isPlaying) {
+                                scheduleNextServerAfterFailure(exo)
+                            }
+                        }
+                        serverStartupTimeout = timeout
+                        serverFailoverHandler.postDelayed(timeout, 12000L)
+                    }
                 }
             })
         }
 }
 
 
+/** Move to the next supplied server after the current player fails.
+ * Keeps retrying the server list in a loop until a stream becomes playable.
+ */
+private fun scheduleNextServerAfterFailure(failedPlayer: ExoPlayer) {
+    if (player !== failedPlayer || incomingServerUrls.size < 2 || serverFailoverPending) return
 
+    serverFailoverPending = true
+    serverFailoverAttempts++
+    // Pause briefly between attempts; add a slightly longer pause after each full pass.
+    val delayMs = if (serverFailoverAttempts % incomingServerUrls.size == 0) 1800L else 500L
+    serverFailoverHandler.postDelayed({
+        serverFailoverPending = false
+        // A manual server selection or a newer player may have replaced this failed player.
+        if (player !== failedPlayer) return@postDelayed
+
+        incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
+        val targetUrl = incomingServerUrls.getOrNull(incomingSelectedServer).orEmpty()
+        if (targetUrl.isBlank()) {
+            scheduleNextServerAfterFailure(failedPlayer)
+            return@postDelayed
+        }
+
+        val targetReferer = incomingServerReferers.getOrNull(incomingSelectedServer).orEmpty()
+        val channel = Channel(
+            name = incomingChannelName.ifBlank { "بث مباشر" },
+            url = targetUrl,
+            group = "مباشر",
+            type = "live",
+            referer = targetReferer
+        )
+        channels.removeAll { it.name == channel.name && it.group == "مباشر" }
+        channels.add(channel)
+        play(channel)
+        playerView?.player = player
+        fullscreenView?.player = player
+        // Update the selected circle to match the server being tested.
+        updateServerButtonSelection()
+    }, delayMs)
+}
+
+private fun updateServerButtonSelection() {
+    val bar = serverButtonsBar ?: return
+    for (buttonIndex in 0 until bar.childCount) {
+        (bar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(
+                if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165)
+                else Color.argb(135, 35, 35, 35)
+            )
+            setStroke(
+                dp(1),
+                if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY
+            )
+        }
+    }
+}
 
 private fun showLibrary() {  
     val root = makeColumn()  
@@ -1628,6 +1717,7 @@ private fun openFullscreen() {
         setBackgroundColor(Color.BLACK)
     }
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
+    fullscreenView = fullPlayer
 
     val handler = Handler(Looper.getMainLooper())
     var controlsVisible = true
@@ -1666,6 +1756,7 @@ private fun openFullscreen() {
             setBackgroundColor(Color.TRANSPARENT)
         }
         serverButtonsContainer = serverBar
+        serverButtonsBar = serverBar
         incomingServerNames.forEachIndexed { index, serverName ->
             val serverButton = TextView(this).apply {
                 text = serverName.ifBlank { "S${index + 1}" }
@@ -1688,13 +1779,7 @@ private fun openFullscreen() {
                     channels.add(channel)
                     play(channel)
                     fullPlayer.player = player
-                    incomingServerNames.forEachIndexed { buttonIndex, _ ->
-                        (serverBar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
-                            shape = GradientDrawable.OVAL
-                            setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(135, 35, 35, 35))
-                            setStroke(dp(1), if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
-                        }
-                    }
+                    updateServerButtonSelection()
                 }
             }
             val params = LinearLayout.LayoutParams(dp(48), dp(48))
