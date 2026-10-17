@@ -1560,8 +1560,13 @@ if (playerView == null) {
     } catch (_: Exception) {
         ""
     }
-    if (normalizedPath.endsWith("/index.html") || normalizedPath == "index.html") {
-        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    if (
+    normalizedPath.endsWith("/index.html") ||
+    normalizedPath == "index.html" ||
+    normalizedPath.endsWith("/playlist.html") ||
+    normalizedPath == "playlist.html"
+) {
+    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
     }
 
     val drmName = prefs.getString("add_drm_scheme", "بدون DRM").orEmpty().lowercase()
