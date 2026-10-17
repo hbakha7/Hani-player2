@@ -454,13 +454,14 @@ menu.setOnClickListener {
     AlertDialog.Builder(this)  
         .setTitle("HTV PLAYER")  
         .setItems(  
-            arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")  
-        ) { _, which ->  
-            when (which) {  
-                0 -> renderSavedHomeLinks(content, empty)  
-                1 -> showAddLinkForm()  
-                2 -> showSaved()  
-            }  
+            arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة", "Privacy Policy")
+        ) { _, which ->
+            when (which) {
+                0 -> renderSavedHomeLinks(content, empty)
+                1 -> showAddLinkForm()
+                2 -> showSaved()
+                3 -> showPrivacyPolicy()
+            }
         }  
         .show()  
 }  
@@ -498,6 +499,68 @@ search.setOnClickListener {
         .show()  
 }
 
+}
+
+private fun showPrivacyPolicy() {
+    val policyText = """
+PRIVACY POLICY
+HTV PLAYER
+
+Last updated: October 18, 2026
+
+1. Introduction
+HTV PLAYER is a media player that allows users to play video streams and playlists supplied by the user. This Privacy Policy explains how information is handled when you use the app.
+
+2. Information You Provide
+The app may store information that you enter, including stream names and URLs, M3U playlist URLs, Xtream Codes server addresses, usernames and passwords, and playback settings such as User-Agent, Referer, Cookie, authentication, and DRM-related values.
+
+3. Storage on Your Device
+Saved links, playlist addresses, account details, and playback form settings are stored locally on your device using Android SharedPreferences. The app's code does not provide a cloud account or a developer-operated account-sync service. Anyone with access to your unlocked device or app data may be able to access locally stored information.
+
+4. Connections to Streaming Providers
+When you play a stream, load a playlist, or connect to an Xtream Codes server, the app sends the relevant request to the server address you provide. That server may receive your IP address, connection information, requested URL, and any credentials or request headers required for playback. The privacy practices of those servers are controlled by their respective operators, not by HTV PLAYER.
+
+5. Information Collection and Sharing
+The app code does not include an analytics or advertising SDK, and it does not intentionally send your saved settings to the app developer. Information is sent to streaming servers as needed to fulfil your playback requests. If you open a link in another app or browser, that app or service may handle information according to its own privacy policy.
+
+6. Third-Party Content
+You are responsible for the playlists, stream URLs, and account details you choose to use. Only use content and services that you are authorized to access. We do not control third-party streaming providers, their content, or their data-handling practices.
+
+7. Security
+Please protect your device and avoid entering credentials into servers you do not trust. No method of local storage or internet transmission can be guaranteed to be completely secure.
+
+8. Children's Privacy
+HTV PLAYER is a general-purpose media player and is not specifically directed at children. Parents or guardians should supervise children's use of the app and the services accessed through it.
+
+9. Changes to This Policy
+This policy may be updated when the app's features or practices change. The latest version should be made available with the app.
+
+10. Contact
+For privacy questions about this app, contact the app developer or distributor through the contact details provided with the app, if available.
+    """.trimIndent()
+
+    val scroll = ScrollView(this)
+    val textView = TextView(this).apply {
+        text = policyText
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        setPadding(dp(18), dp(16), dp(18), dp(16))
+        setTextIsSelectable(true)
+        setLineSpacing(dp(3).toFloat(), 1.0f)
+    }
+    scroll.addView(
+        textView,
+        ScrollView.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    AlertDialog.Builder(this)
+        .setTitle("Privacy Policy")
+        .setView(scroll)
+        .setPositiveButton("Close", null)
+        .show()
 }
 
 private fun showAddLinkForm() {
