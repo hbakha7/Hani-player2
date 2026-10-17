@@ -75,7 +75,9 @@ private var incomingServerUrls = arrayListOf<String>()
 private var incomingServerReferers = arrayListOf<String>()
 private var incomingSelectedServer = 0
 private var incomingChannelName = ""
-private var fullscreenView: PlayerView? = null  
+private var fullscreenView: PlayerView? = null
+private var retryHandler = Handler(Looper.getMainLooper())
+private var retryRunnable: Runnable? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
 private var savedLayoutParams: ViewGroup.LayoutParams? = null  
@@ -1249,6 +1251,32 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                 override fun onPlayerError(
                     error: PlaybackException
                 ) {
+                    // HANI TV alternate servers: never show an error message.
+                    // Cycle forever through the supplied server URLs, retrying each
+                    // after a short pause, even if every server keeps failing.
+                    if (incomingServerUrls.isNotEmpty() &&
+                        incomingServerNames.size == incomingServerUrls.size) {
+                        retryRunnable?.let { retryHandler.removeCallbacks(it) }
+                        incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
+                        val nextUrl = incomingServerUrls[incomingSelectedServer]
+                        val nextReferer = incomingServerReferers.getOrNull(incomingSelectedServer).orEmpty()
+                        val nextChannel = Channel(
+                            incomingChannelName.ifBlank { "بث مباشر" },
+                            nextUrl,
+                            "مباشر",
+                            type = "live",
+                            referer = nextReferer
+                        )
+                        retryRunnable = Runnable {
+                            channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
+                            channels.add(nextChannel)
+                            play(nextChannel)
+                            fullscreenView?.player = player
+                        }
+                        retryHandler.postDelayed(retryRunnable!!, 1200L)
+                        return
+                    }
+
                     val details = generateSequence(error.cause) {
                         it.cause
                     }.filterIsInstance<
@@ -1597,11 +1625,29 @@ if (playerView == null) {
 
     setStatus("قيد التشغيل: ${ch.name}")
     // افتح البث المباشر بالعرض وملء الشاشة مباشرة.
-    if (ch.type == "live") {
+    if (ch.type == "live" && fullscreenDialog?.isShowing != true) {
         playerView?.post { openFullscreen() }
     }
 } catch (e: Exception) {  
-    message("تعذر بدء التشغيل:\n${e.message}")  
+    if (incomingServerUrls.isEmpty() || incomingServerNames.size != incomingServerUrls.size) {
+        message("تعذر بدء التشغيل:\n${e.message}")
+    } else {
+        retryHandler.postDelayed({
+            val next = (incomingSelectedServer + 1) % incomingServerUrls.size
+            incomingSelectedServer = next
+            val nextChannel = Channel(
+                incomingChannelName.ifBlank { "بث مباشر" },
+                incomingServerUrls[next],
+                "مباشر",
+                type = "live",
+                referer = incomingServerReferers.getOrNull(next).orEmpty()
+            )
+            channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
+            channels.add(nextChannel)
+            play(nextChannel)
+            fullscreenView?.player = player
+        }, 1200L)
+    }
 }
 
 }
@@ -1628,6 +1674,7 @@ private fun openFullscreen() {
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
     }
+    fullscreenView = fullPlayer
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
 
     val handler = Handler(Looper.getMainLooper())
@@ -1918,6 +1965,7 @@ private fun openFullscreen() {
         handler.removeCallbacks(updateProgress)
         handler.removeCallbacks(hideControls)
         fullPlayer.player = null
+        if (fullscreenView === fullPlayer) fullscreenView = null
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
         if (directLinkPlayback) {
             directLinkPlayback = false
