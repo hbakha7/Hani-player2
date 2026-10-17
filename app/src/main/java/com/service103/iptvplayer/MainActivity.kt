@@ -13,7 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
-import android.view.View
+import android.view.Viehttps://cen7.centerfastnet.cfd/
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.*
@@ -74,6 +74,8 @@ private var incomingServerNames = arrayListOf<String>()
 private var incomingServerUrls = arrayListOf<String>()
 private var incomingServerReferers = arrayListOf<String>()
 private var incomingSelectedServer = 0
+private val attemptedIncomingServers = mutableSetOf<Int>()
+private var fullscreenServerButtons: LinearLayout? = null
 private var incomingChannelName = ""
 private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
@@ -119,6 +121,8 @@ private fun handleExternalLink(incoming: android.content.Intent?) {
     incomingServerReferers = incoming.getStringArrayListExtra("server_referers") ?: arrayListOf()
     incomingSelectedServer = incoming.getIntExtra("selected_server_index", 0)
         .coerceIn(0, (incomingServerUrls.size - 1).coerceAtLeast(0))
+    attemptedIncomingServers.clear()
+    if (incomingServerUrls.isNotEmpty()) attemptedIncomingServers.add(incomingSelectedServer)
     incomingChannelName = name
     val referer = incoming.getStringExtra("referer") ?: incoming.getStringExtra("referrer")
 
@@ -1210,6 +1214,45 @@ return headers
 
 
 
+private fun tryNextIncomingServer(): Boolean {
+    if (incomingServerUrls.size < 2 || incomingSelectedServer !in incomingServerUrls.indices) return false
+
+    val nextIndex = incomingServerUrls.indices.firstOrNull { index ->
+        index !in attemptedIncomingServers
+    } ?: return false
+
+    attemptedIncomingServers.add(nextIndex)
+    incomingSelectedServer = nextIndex
+    val url = incomingServerUrls[nextIndex].trim()
+    if (url.isBlank()) return tryNextIncomingServer()
+
+    val serverName = incomingServerNames.getOrNull(nextIndex).orEmpty().ifBlank { "السيرفر ${nextIndex + 1}" }
+    runOnUiThread {
+        setStatus("تعذر التشغيل؛ تجربة $serverName تلقائيًا...")
+        fullscreenServerButtons?.let { bar ->
+            incomingServerNames.forEachIndexed { buttonIndex, _ ->
+                (bar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(135, 35, 35, 35))
+                    setStroke(dp(1), if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
+                }
+            }
+        }
+        val channel = Channel(
+            name = incomingChannelName.ifBlank { "بث مباشر" },
+            url = url,
+            group = "مباشر",
+            type = "live",
+            referer = incomingServerReferers.getOrNull(nextIndex).orEmpty()
+        )
+        channels.removeAll { it.name == channel.name && it.group == "مباشر" }
+        channels.add(channel)
+        play(channel)
+        fullscreenView?.player = player
+    }
+    return true
+}
+
 private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val headers = getPlaybackHeaders(refererOverride).toMutableMap()
 
@@ -1275,7 +1318,9 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                             append("\n\nهذا الخطأ لا يثبت أن Referer وحده هو السبب. قد تكون استجابة الخادم غير فيديو أو أن صيغة البث غير مدعومة.")
                         }
                     }
-                    message(diagnostic)
+                    // If HANI TV supplied multiple servers, automatically try the next
+                    // untried server before showing an error to the viewer.
+                    if (!tryNextIncomingServer()) message(diagnostic)
                 }
             })
         }
@@ -1628,6 +1673,7 @@ private fun openFullscreen() {
         setBackgroundColor(Color.BLACK)
     }
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
+    fullscreenView = fullPlayer
 
     val handler = Handler(Looper.getMainLooper())
     var controlsVisible = true
@@ -1666,6 +1712,7 @@ private fun openFullscreen() {
             setBackgroundColor(Color.TRANSPARENT)
         }
         serverButtonsContainer = serverBar
+        fullscreenServerButtons = serverBar
         incomingServerNames.forEachIndexed { index, serverName ->
             val serverButton = TextView(this).apply {
                 text = serverName.ifBlank { "S${index + 1}" }
@@ -1680,6 +1727,8 @@ private fun openFullscreen() {
                 setOnClickListener {
                     if (index == incomingSelectedServer) return@setOnClickListener
                     incomingSelectedServer = index
+                    attemptedIncomingServers.clear()
+                    attemptedIncomingServers.add(index)
                     val targetUrl = incomingServerUrls.getOrNull(index) ?: return@setOnClickListener
                     val targetReferer = incomingServerReferers.getOrNull(index).orEmpty()
                     val channel = Channel(incomingChannelName.ifBlank { "بث مباشر" }, targetUrl,
@@ -1918,6 +1967,8 @@ private fun openFullscreen() {
         handler.removeCallbacks(hideControls)
         fullPlayer.player = null
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
+        fullscreenView = null
+        fullscreenServerButtons = null
         if (directLinkPlayback) {
             directLinkPlayback = false
             original.player = null
