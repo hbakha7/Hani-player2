@@ -75,10 +75,7 @@ private var incomingServerUrls = arrayListOf<String>()
 private var incomingServerReferers = arrayListOf<String>()
 private var incomingSelectedServer = 0
 private var incomingChannelName = ""
-private var fullscreenView: PlayerView? = null
-private var retryHandler = Handler(Looper.getMainLooper())
-private var retryRunnable: Runnable? = null
-private var bufferingRetryRunnable: Runnable? = null
+private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
 private var savedLayoutParams: ViewGroup.LayoutParams? = null  
@@ -1082,9 +1079,8 @@ private fun loadXtream(type: String) {
             val data = withContext(Dispatchers.IO) {  
                 val conn = URL(endpoint).openConnection()  
                     as HttpURLConnection  
-                // Fail a non-responsive server sooner without changing UI or playback.
-                conn.connectTimeout = 10000  
-                conn.readTimeout = 20000  
+                conn.connectTimeout = 15000  
+                conn.readTimeout = 25000  
                 conn.setRequestProperty(  
                     "User-Agent", "103IPTVPlayer/1.0"  
                 )  
@@ -1249,36 +1245,9 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
         .build()
         .also { exo ->
             exo.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    // Some dead servers never raise onPlayerError and stay buffering.
-                    // Switch away from a server that has not reached READY after 12 seconds.
-                    bufferingRetryRunnable?.let { retryHandler.removeCallbacks(it) }
-                    bufferingRetryRunnable = null
-                    if (playbackState == Player.STATE_BUFFERING &&
-                        incomingServerUrls.size > 1 &&
-                        incomingServerNames.size == incomingServerUrls.size) {
-                        val thisPlayer = exo
-                        val watchdog = Runnable {
-                            if (player === thisPlayer &&
-                                thisPlayer.playbackState == Player.STATE_BUFFERING) {
-                                scheduleNextIncomingServer()
-                            }
-                        }
-                        bufferingRetryRunnable = watchdog
-                        retryHandler.postDelayed(watchdog, 12000L)
-                    }
-                }
-
-                override fun onPlayerError(error: PlaybackException) {
-                    // Never show an error for HANI TV alternate servers; move to the next one.
-                    if (incomingServerUrls.size > 1 &&
-                        incomingServerNames.size == incomingServerUrls.size) {
-                        bufferingRetryRunnable?.let { retryHandler.removeCallbacks(it) }
-                        bufferingRetryRunnable = null
-                        scheduleNextIncomingServer()
-                        return
-                    }
-
+                override fun onPlayerError(
+                    error: PlaybackException
+                ) {
                     val details = generateSequence(error.cause) {
                         it.cause
                     }.filterIsInstance<
@@ -1314,26 +1283,6 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
 
 
 
-// Rotate to the next HANI TV server and keep retrying forever if all servers fail.
-private fun scheduleNextIncomingServer() {
-    if (incomingServerUrls.size < 2 || incomingServerNames.size != incomingServerUrls.size) return
-    retryRunnable?.let { retryHandler.removeCallbacks(it) }
-    incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
-    val nextIndex = incomingSelectedServer
-    val nextUrl = incomingServerUrls[nextIndex]
-    val nextReferer = incomingServerReferers.getOrNull(nextIndex).orEmpty()
-    val nextChannel = Channel(
-        incomingChannelName.ifBlank { "بث مباشر" }, nextUrl, "مباشر",
-        type = "live", referer = nextReferer
-    )
-    retryRunnable = Runnable {
-        channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
-        channels.add(nextChannel)
-        play(nextChannel)
-        fullscreenView?.player = player
-    }
-    retryHandler.postDelayed(retryRunnable!!, 1200L)
-}
 
 private fun showLibrary() {  
     val root = makeColumn()  
@@ -1647,29 +1596,11 @@ if (playerView == null) {
 
     setStatus("قيد التشغيل: ${ch.name}")
     // افتح البث المباشر بالعرض وملء الشاشة مباشرة.
-    if (ch.type == "live" && fullscreenDialog?.isShowing != true) {
+    if (ch.type == "live") {
         playerView?.post { openFullscreen() }
     }
 } catch (e: Exception) {  
-    if (incomingServerUrls.isEmpty() || incomingServerNames.size != incomingServerUrls.size) {
-        message("تعذر بدء التشغيل:\n${e.message}")
-    } else {
-        retryHandler.postDelayed({
-            val next = (incomingSelectedServer + 1) % incomingServerUrls.size
-            incomingSelectedServer = next
-            val nextChannel = Channel(
-                incomingChannelName.ifBlank { "بث مباشر" },
-                incomingServerUrls[next],
-                "مباشر",
-                type = "live",
-                referer = incomingServerReferers.getOrNull(next).orEmpty()
-            )
-            channels.removeAll { it.name == nextChannel.name && it.group == "مباشر" }
-            channels.add(nextChannel)
-            play(nextChannel)
-            fullscreenView?.player = player
-        }, 1200L)
-    }
+    message("تعذر بدء التشغيل:\n${e.message}")  
 }
 
 }
@@ -1690,13 +1621,12 @@ private fun openFullscreen() {
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        // Fill the landscape screen similarly to the reference player.
-        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        // Make "ملء الصورة" the default mode whenever fullscreen playback opens.
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
         keepScreenOn = true
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
     }
-    fullscreenView = fullPlayer
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
 
     val handler = Handler(Looper.getMainLooper())
@@ -1987,7 +1917,6 @@ private fun openFullscreen() {
         handler.removeCallbacks(updateProgress)
         handler.removeCallbacks(hideControls)
         fullPlayer.player = null
-        if (fullscreenView === fullPlayer) fullscreenView = null
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
         if (directLinkPlayback) {
             directLinkPlayback = false
