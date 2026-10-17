@@ -1079,8 +1079,9 @@ private fun loadXtream(type: String) {
             val data = withContext(Dispatchers.IO) {  
                 val conn = URL(endpoint).openConnection()  
                     as HttpURLConnection  
-                conn.connectTimeout = 15000  
-                conn.readTimeout = 25000  
+                // Fail a non-responsive server sooner without changing UI or playback.
+                conn.connectTimeout = 10000  
+                conn.readTimeout = 20000  
                 conn.setRequestProperty(  
                     "User-Agent", "103IPTVPlayer/1.0"  
                 )  
@@ -1560,13 +1561,8 @@ if (playerView == null) {
     } catch (_: Exception) {
         ""
     }
-    if (
-    normalizedPath.endsWith("/index.html") ||
-    normalizedPath == "index.html" ||
-    normalizedPath.endsWith("/playlist.html") ||
-    normalizedPath == "playlist.html"
-) {
-    itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+    if (normalizedPath.endsWith("/index.html") || normalizedPath == "index.html") {
+        itemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
     }
 
     val drmName = prefs.getString("add_drm_scheme", "بدون DRM").orEmpty().lowercase()
@@ -1626,8 +1622,8 @@ private fun openFullscreen() {
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        // Make "ملء الصورة" the default mode whenever fullscreen playback opens.
-        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+        // Fill the landscape screen similarly to the reference player.
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         keepScreenOn = true
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
