@@ -1938,9 +1938,11 @@ private fun openFullscreen() {
     }
     val seek = SeekBar(this).apply {
         max = 1000
-        progressTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
-        thumbTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
-        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(120, 255, 255, 255))
+        // Match the requested player timeline: watched portion white,
+        // remaining portion red, and a solid white circular thumb.
+        progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.RED)
         setPadding(0, 0, 0, 0)
     }
     timeRow.addView(elapsed, LinearLayout.LayoutParams(dp(58), dp(28)))
