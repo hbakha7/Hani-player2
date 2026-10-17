@@ -216,7 +216,7 @@ private fun renderSavedHomeLinks(content: FrameLayout, empty: TextView) {
     content.removeAllViews()
     val items = getSavedLinks()
     if (items.length() == 0) {
-        empty.text = "103 IPTV PLAYER"
+        empty.text = "HTV PLAYER"
         content.addView(empty, FrameLayout.LayoutParams(-1, -1))
         return
     }
@@ -346,7 +346,7 @@ val menu = TextView(this).apply {
 }  
 
 val title = TextView(this).apply {  
-    text = "103 IPTV Player"  
+    text = "HTV PLAYER"  
     textSize = 20f  
     gravity = Gravity.CENTER  
     setTextColor(Color.WHITE)  
@@ -373,7 +373,7 @@ val content = FrameLayout(this).apply {
 }  
 
 val empty = TextView(this).apply {  
-    text = "103 IPTV PLAYER"  
+    text = "HTV PLAYER"  
     textSize = 24f  
     gravity = Gravity.CENTER  
     setTextColor(Color.rgb(25, 190, 165))  
@@ -452,7 +452,7 @@ setContentView(root)
 
 menu.setOnClickListener {  
     AlertDialog.Builder(this)  
-        .setTitle("103 IPTV Player")  
+        .setTitle("HTV PLAYER")  
         .setItems(  
             arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة")  
         ) { _, which ->  
@@ -1376,7 +1376,7 @@ private fun showLibrary() {
     val scroll = ScrollView(this)  
     val content = makeColumn()  
 
-    val title = label("103 IPTV PLAYER", 22f, accent, true)  
+    val title = label("HTV PLAYER", 22f, accent, true)  
     title.gravity = Gravity.CENTER  
     content.addView(title)  
 
