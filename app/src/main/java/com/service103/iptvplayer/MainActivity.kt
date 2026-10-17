@@ -450,20 +450,80 @@ navItem("+", "إضافة") {
 root.addView(navigation)  
 setContentView(root)  
 
-menu.setOnClickListener {  
-    AlertDialog.Builder(this)  
-        .setTitle("HTV PLAYER")  
-        .setItems(  
-            arrayOf("الرئيسية", "إضافة رابط", "الروابط المحفوظة", "Privacy Policy")
-        ) { _, which ->
-            when (which) {
-                0 -> renderSavedHomeLinks(content, empty)
-                1 -> showAddLinkForm()
-                2 -> showSaved()
-                3 -> showPrivacyPolicy()
+menu.setOnClickListener {
+    val drawer = Dialog(this)
+    val drawerRoot = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(14), dp(24), dp(10), dp(12))
+        setBackgroundColor(Color.rgb(8, 25, 42))
+    }
+
+    val brand = TextView(this).apply {
+        text = "HTV PLAYER"
+        textSize = 24f
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER
+        setTextColor(Color.WHITE)
+        setPadding(dp(8), dp(24), dp(8), dp(30))
+    }
+    drawerRoot.addView(brand, LinearLayout.LayoutParams(-1, dp(125)))
+
+    fun drawerItem(icon: String, caption: String, action: () -> Unit) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            setPadding(dp(8), dp(4), dp(4), dp(4))
+            setOnClickListener {
+                drawer.dismiss()
+                action()
             }
-        }  
-        .show()  
+        }
+        val iconView = TextView(this).apply {
+            text = icon
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+        }
+        item.addView(iconView, LinearLayout.LayoutParams(dp(48), dp(54)))
+        val captionView = TextView(this).apply {
+            text = caption
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, dp(4), 0)
+        }
+        item.addView(captionView, LinearLayout.LayoutParams(0, dp(54), 1f))
+        drawerRoot.addView(item, LinearLayout.LayoutParams(-1, dp(58)))
+    }
+
+    drawerItem("⌂", "Home") { renderSavedHomeLinks(content, empty) }
+    drawerItem("+", "Add Link") { showAddLinkForm() }
+    drawerItem("▣", "Saved Links") { showSaved() }
+    drawerItem("⚿", "Privacy Policy") { showPrivacyPolicy() }
+
+    drawer.setContentView(drawerRoot)
+    drawer.setCancelable(true)
+    drawer.window?.let { w ->
+        w.setBackgroundDrawableResource(android.R.color.transparent)
+        w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        val params = w.attributes
+        params.gravity = Gravity.START
+        params.width = (resources.displayMetrics.widthPixels * 0.76f).toInt()
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT
+        params.dimAmount = 0.60f
+        w.attributes = params
+    }
+    drawer.show()
+    drawer.window?.let { w ->
+        w.setLayout(
+            (resources.displayMetrics.widthPixels * 0.76f).toInt(),
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        w.setGravity(Gravity.START)
+    }
 }  
 
 search.setOnClickListener {  
@@ -543,7 +603,8 @@ For privacy questions about this app, contact the app developer or distributor t
     val textView = TextView(this).apply {
         text = policyText
         textSize = 15f
-        setTextColor(Color.WHITE)
+        setTextColor(Color.BLACK)
+        setBackgroundColor(Color.WHITE)
         setPadding(dp(18), dp(16), dp(18), dp(16))
         setTextIsSelectable(true)
         setLineSpacing(dp(3).toFloat(), 1.0f)
@@ -556,11 +617,17 @@ For privacy questions about this app, contact the app developer or distributor t
         )
     )
 
-    AlertDialog.Builder(this)
+    val policyDialog = AlertDialog.Builder(this)
         .setTitle("Privacy Policy")
         .setView(scroll)
         .setPositiveButton("Close", null)
-        .show()
+        .create()
+    policyDialog.setOnShowListener {
+        policyDialog.window?.setBackgroundDrawableResource(android.R.color.white)
+        policyDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            ?.setTextColor(Color.rgb(8, 25, 42))
+    }
+    policyDialog.show()
 }
 
 private fun showAddLinkForm() {
