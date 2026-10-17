@@ -550,7 +550,7 @@ For privacy questions about this app, contact the app developer or distributor t
     }
     scroll.addView(
         textView,
-        ScrollView.LayoutParams(
+        ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
