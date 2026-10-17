@@ -1938,22 +1938,10 @@ private fun openFullscreen() {
     }
     val seek = SeekBar(this).apply {
         max = 1000
-        // Use Android's native SeekBar layers so the red remaining track,
-        // white played track, and white thumb stay aligned and update together.
-        progressDrawable = getDrawable(android.R.drawable.progress_horizontal)
-        progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.RED)
-        thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-        progressTintMode = android.graphics.PorterDuff.Mode.SRC_IN
-        progressBackgroundTintMode = android.graphics.PorterDuff.Mode.SRC_IN
-        thumbTintMode = android.graphics.PorterDuff.Mode.SRC_IN
-        thumb = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(Color.WHITE)
-            setSize(dp(18), dp(18))
-        }
-        splitTrack = false
-        setPadding(dp(2), 0, dp(2), 0)
+        progressTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
+        thumbTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
+        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(120, 255, 255, 255))
+        setPadding(0, 0, 0, 0)
     }
     timeRow.addView(elapsed, LinearLayout.LayoutParams(dp(58), dp(28)))
     timeRow.addView(seek, LinearLayout.LayoutParams(0, dp(28), 1f))
@@ -1963,13 +1951,13 @@ private fun openFullscreen() {
 
     seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
-            // Keep dragging smooth; seek only when the user releases the thumb.
+            if (fromUser) {
+                val d = player?.duration ?: C.TIME_UNSET
+                if (d > 0 && d != C.TIME_UNSET) player?.seekTo(d * progress / 1000L)
+            }
         }
         override fun onStartTrackingTouch(bar: SeekBar?) {}
-        override fun onStopTrackingTouch(bar: SeekBar?) {
-            val d = player?.duration ?: C.TIME_UNSET
-            if (d > 0 && d != C.TIME_UNSET) player?.seekTo(d * (bar?.progress ?: 0) / 1000L)
-        }
+        override fun onStopTrackingTouch(bar: SeekBar?) {}
     })
 
     lateinit var hideControls: Runnable
@@ -2002,7 +1990,7 @@ private fun openFullscreen() {
                     }
                     pauseButton.text = if (p.isPlaying) "Ⅱ" else "▶"
                 }
-                handler.postDelayed(this, 250)
+                handler.postDelayed(this, 500)
             }
         }
     }
