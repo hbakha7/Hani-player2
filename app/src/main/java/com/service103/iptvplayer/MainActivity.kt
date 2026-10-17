@@ -69,6 +69,7 @@ private var currentHost = ""
 private var currentUser = ""  
 private var currentPass = ""  
 private var fullscreenDialog: Dialog? = null  
+private var orientationBeforeDirectPlayback: Int? = null
 private var directLinkPlayback = false
 private var incomingServerNames = arrayListOf<String>()
 private var incomingServerUrls = arrayListOf<String>()
@@ -853,6 +854,11 @@ playDirectFullscreen(link)
 }
 
 private fun playDirectFullscreen(link: String) {
+    if (orientationBeforeDirectPlayback == null) {
+        orientationBeforeDirectPlayback = requestedOrientation
+    }
+    // Rotate before creating/starting the player so the stream opens in landscape immediately.
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
     val channel = channels.firstOrNull { it.url == link }
         ?: Channel(
             name = incomingChannelName.ifBlank { "فيديو مباشر" },
@@ -1610,7 +1616,7 @@ private fun openFullscreen() {
     if (fullscreenDialog?.isShowing == true) return
 
     val parent = original.parent as? ViewGroup ?: return
-    val oldOrientation = requestedOrientation
+    val oldOrientation = orientationBeforeDirectPlayback ?: requestedOrientation
     val oldIndex = parent.indexOfChild(original)
     val oldParams = original.layoutParams
     parent.removeView(original)
@@ -1923,6 +1929,7 @@ private fun openFullscreen() {
             original.player = null
             playerView = null
             requestedOrientation = oldOrientation
+            orientationBeforeDirectPlayback = null
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             fullscreenDialog = null
             // Returning from an external app launch should return to HANI TV,
@@ -1934,6 +1941,7 @@ private fun openFullscreen() {
         original.player = player
         original.useController = true
         requestedOrientation = oldOrientation
+        orientationBeforeDirectPlayback = null
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         fullscreenDialog = null
     }
