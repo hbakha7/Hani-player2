@@ -1938,32 +1938,22 @@ private fun openFullscreen() {
     }
     val seek = SeekBar(this).apply {
         max = 1000
-        // Explicit drawable layers make the timeline update visibly:
-        // red is the remaining track, white is the played portion.
-        val remainingTrack = android.graphics.drawable.GradientDrawable().apply {
-            setColor(Color.RED)
-            cornerRadius = dp(2).toFloat()
-        }
-        val playedTrack = android.graphics.drawable.GradientDrawable().apply {
-            setColor(Color.WHITE)
-            cornerRadius = dp(2).toFloat()
-        }
-        val playedClip = android.graphics.drawable.ClipDrawable(
-            playedTrack, Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL
-        )
-        val layers = android.graphics.drawable.LayerDrawable(arrayOf(remainingTrack, playedClip)).apply {
-            setId(0, android.R.id.background)
-            setId(1, android.R.id.progress)
-            setLayerInset(0, 0, dp(12), 0, dp(12))
-            setLayerInset(1, 0, dp(12), 0, dp(12))
-        }
-        progressDrawable = layers
+        // Use Android's native SeekBar layers so the red remaining track,
+        // white played track, and white thumb stay aligned and update together.
+        progressDrawable = getDrawable(android.R.drawable.progress_horizontal)
+        progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.RED)
+        thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        progressTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+        progressBackgroundTintMode = android.graphics.PorterDuff.Mode.SRC_IN
+        thumbTintMode = android.graphics.PorterDuff.Mode.SRC_IN
         thumb = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
             setColor(Color.WHITE)
             setSize(dp(18), dp(18))
         }
-        setPadding(0, 0, 0, 0)
+        splitTrack = false
+        setPadding(dp(2), 0, dp(2), 0)
     }
     timeRow.addView(elapsed, LinearLayout.LayoutParams(dp(58), dp(28)))
     timeRow.addView(seek, LinearLayout.LayoutParams(0, dp(28), 1f))
