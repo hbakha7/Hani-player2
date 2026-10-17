@@ -5,7 +5,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="103 IPTV Player"
+        android:label="HTV PLAYER"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
