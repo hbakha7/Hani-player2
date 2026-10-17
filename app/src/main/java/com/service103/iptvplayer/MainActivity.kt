@@ -75,13 +75,7 @@ private var incomingServerUrls = arrayListOf<String>()
 private var incomingServerReferers = arrayListOf<String>()
 private var incomingSelectedServer = 0
 private var incomingChannelName = ""
-// Automatically rotate through the received server URLs after playback errors.
-private val serverFailoverHandler = Handler(Looper.getMainLooper())
-private var serverFailoverPending = false
-private var serverFailoverAttempts = 0
-private var serverStartupTimeout: Runnable? = null
-private var fullscreenView: PlayerView? = null
-private var serverButtonsBar: LinearLayout? = null  
+private var fullscreenView: PlayerView? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
 private var savedLayoutParams: ViewGroup.LayoutParams? = null  
@@ -869,10 +863,6 @@ private fun playDirectFullscreen(link: String) {
 
     currentType = "live"
     directLinkPlayback = true
-    serverFailoverHandler.removeCallbacksAndMessages(null)
-    serverStartupTimeout = null
-    serverFailoverPending = false
-    serverFailoverAttempts = 0
 
     // Create only a black player surface; do not open the library/home screen.
     val directPlayerView = PlayerView(this).apply {
@@ -1089,8 +1079,9 @@ private fun loadXtream(type: String) {
             val data = withContext(Dispatchers.IO) {  
                 val conn = URL(endpoint).openConnection()  
                     as HttpURLConnection  
-                conn.connectTimeout = 15000  
-                conn.readTimeout = 25000  
+                // Fail a non-responsive server sooner without changing UI or playback.
+                conn.connectTimeout = 10000  
+                conn.readTimeout = 20000  
                 conn.setRequestProperty(  
                     "User-Agent", "103IPTVPlayer/1.0"  
                 )  
@@ -1240,8 +1231,8 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val httpFactory = DefaultHttpDataSource.Factory()
         .setDefaultRequestProperties(headers)
         .setAllowCrossProtocolRedirects(true)
-        .setConnectTimeoutMs(6000)
-        .setReadTimeoutMs(12000)
+        .setConnectTimeoutMs(15000)
+        .setReadTimeoutMs(20000)
 
     if (userAgent != null) {
         httpFactory.setUserAgent(userAgent)
@@ -1285,93 +1276,14 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                             append("\n\nهذا الخطأ لا يثبت أن Referer وحده هو السبب. قد تكون استجابة الخادم غير فيديو أو أن صيغة البث غير مدعومة.")
                         }
                     }
-                    // For links that provide multiple servers, silently try the next
-                    // server instead of showing an error dialog to the viewer.
-                    if (directLinkPlayback && incomingServerUrls.size > 1) {
-                        scheduleNextServerAfterFailure(exo)
-                    } else {
-                        message(diagnostic)
-                    }
-                }
-
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (player !== exo || !directLinkPlayback || incomingServerUrls.size < 2) return
-                    if (playbackState == Player.STATE_READY) {
-                        serverStartupTimeout?.let { serverFailoverHandler.removeCallbacks(it) }
-                        serverStartupTimeout = null
-                        serverFailoverAttempts = 0
-                    } else if (playbackState == Player.STATE_BUFFERING) {
-                        serverStartupTimeout?.let { serverFailoverHandler.removeCallbacks(it) }
-                        val timeout = Runnable {
-                            if (player === exo && exo.playbackState != Player.STATE_READY && !exo.isPlaying) {
-                                scheduleNextServerAfterFailure(exo)
-                            }
-                        }
-                        serverStartupTimeout = timeout
-                        serverFailoverHandler.postDelayed(timeout, 8000L)
-                    }
+                    message(diagnostic)
                 }
             })
         }
 }
 
 
-/** Move to the next supplied server after the current player fails.
- * Keeps retrying the server list in a loop until a stream becomes playable.
- */
-private fun scheduleNextServerAfterFailure(failedPlayer: ExoPlayer) {
-    if (player !== failedPlayer || incomingServerUrls.size < 2 || serverFailoverPending) return
 
-    serverFailoverPending = true
-    serverFailoverAttempts++
-    // Keep failover responsive: a short pause between servers, slightly longer after a full pass.
-    val delayMs = if (serverFailoverAttempts % incomingServerUrls.size == 0) 900L else 250L
-    serverFailoverHandler.postDelayed({
-        serverFailoverPending = false
-        // A manual server selection or a newer player may have replaced this failed player.
-        if (player !== failedPlayer) return@postDelayed
-
-        incomingSelectedServer = (incomingSelectedServer + 1) % incomingServerUrls.size
-        val targetUrl = incomingServerUrls.getOrNull(incomingSelectedServer).orEmpty()
-        if (targetUrl.isBlank()) {
-            scheduleNextServerAfterFailure(failedPlayer)
-            return@postDelayed
-        }
-
-        val targetReferer = incomingServerReferers.getOrNull(incomingSelectedServer).orEmpty()
-        val channel = Channel(
-            name = incomingChannelName.ifBlank { "بث مباشر" },
-            url = targetUrl,
-            group = "مباشر",
-            type = "live",
-            referer = targetReferer
-        )
-        channels.removeAll { it.name == channel.name && it.group == "مباشر" }
-        channels.add(channel)
-        play(channel)
-        playerView?.player = player
-        fullscreenView?.player = player
-        // Update the selected circle to match the server being tested.
-        updateServerButtonSelection()
-    }, delayMs)
-}
-
-private fun updateServerButtonSelection() {
-    val bar = serverButtonsBar ?: return
-    for (buttonIndex in 0 until bar.childCount) {
-        (bar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(
-                if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165)
-                else Color.argb(135, 35, 35, 35)
-            )
-            setStroke(
-                dp(1),
-                if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY
-            )
-        }
-    }
-}
 
 private fun showLibrary() {  
     val root = makeColumn()  
@@ -1710,14 +1622,13 @@ private fun openFullscreen() {
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        // Make "ملء الصورة" the default mode whenever fullscreen playback opens.
-        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+        // Fill the landscape screen similarly to the reference player.
+        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         keepScreenOn = true
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
     }
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
-    fullscreenView = fullPlayer
 
     val handler = Handler(Looper.getMainLooper())
     var controlsVisible = true
@@ -1756,7 +1667,6 @@ private fun openFullscreen() {
             setBackgroundColor(Color.TRANSPARENT)
         }
         serverButtonsContainer = serverBar
-        serverButtonsBar = serverBar
         incomingServerNames.forEachIndexed { index, serverName ->
             val serverButton = TextView(this).apply {
                 text = serverName.ifBlank { "S${index + 1}" }
@@ -1779,7 +1689,13 @@ private fun openFullscreen() {
                     channels.add(channel)
                     play(channel)
                     fullPlayer.player = player
-                    updateServerButtonSelection()
+                    incomingServerNames.forEachIndexed { buttonIndex, _ ->
+                        (serverBar.getChildAt(buttonIndex) as? TextView)?.background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(if (buttonIndex == incomingSelectedServer) Color.rgb(25, 190, 165) else Color.argb(135, 35, 35, 35))
+                            setStroke(dp(1), if (buttonIndex == incomingSelectedServer) Color.WHITE else Color.LTGRAY)
+                        }
+                    }
                 }
             }
             val params = LinearLayout.LayoutParams(dp(48), dp(48))
@@ -1938,10 +1854,36 @@ private fun openFullscreen() {
     }
     val seek = SeekBar(this).apply {
         max = 1000
-        progressTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
-        thumbTintList = android.content.res.ColorStateList.valueOf(Color.LTGRAY)
-        progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(120, 255, 255, 255))
-        setPadding(0, 0, 0, 0)
+        // White seek line and a clearly visible white circular thumb, like the reference.
+        val track = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(3).toFloat()
+            setColor(Color.argb(115, 210, 220, 232))
+        }
+        val played = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(3).toFloat()
+            setColor(Color.WHITE)
+        }
+        val progressClip = android.graphics.drawable.ClipDrawable(
+            played, Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL
+        )
+        progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(track, progressClip)).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+            setLayerHeight(0, dp(4))
+            setLayerHeight(1, dp(4))
+            setLayerGravity(0, Gravity.CENTER_VERTICAL)
+            setLayerGravity(1, Gravity.CENTER_VERTICAL)
+        }
+        thumb = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.WHITE)
+            setSize(dp(18), dp(18))
+        }
+        splitTrack = false
+        setPadding(dp(2), 0, dp(2), 0)
+        isEnabled = true
     }
     timeRow.addView(elapsed, LinearLayout.LayoutParams(dp(58), dp(28)))
     timeRow.addView(seek, LinearLayout.LayoutParams(0, dp(28), 1f))
