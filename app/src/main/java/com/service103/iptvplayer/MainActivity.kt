@@ -1616,30 +1616,18 @@ private fun openFullscreen() {
     parent.removeView(original)
 
     val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-    val frame = FrameLayout(this).apply {
-        setBackgroundColor(Color.BLACK)
-        setPadding(0, 0, 0, 0)
-        clipToPadding = false
-        clipChildren = false
-    }
+    val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
     val fullPlayer = PlayerView(this).apply {
         useController = false
         player = this@MainActivity.player
-        // Zoom/crop the video to remove side bars and fill the landscape display.
+        // Fill the landscape screen similarly to the reference player.
         resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         keepScreenOn = true
-        setPadding(0, 0, 0, 0)
         setShutterBackgroundColor(Color.BLACK)
         setBackgroundColor(Color.BLACK)
-        clipToPadding = false
-        clipChildren = false
     }
-    frame.addView(fullPlayer, FrameLayout.LayoutParams(
-        FrameLayout.LayoutParams.MATCH_PARENT,
-        FrameLayout.LayoutParams.MATCH_PARENT,
-        Gravity.CENTER
-    ))
+    frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
 
     val handler = Handler(Looper.getMainLooper())
     var controlsVisible = true
@@ -1953,12 +1941,23 @@ private fun openFullscreen() {
     fullscreenDialog = dialog
     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
     dialog.show()
-    dialog.window?.setLayout(
-        WindowManager.LayoutParams.MATCH_PARENT,
-        WindowManager.LayoutParams.MATCH_PARENT
-    )
-    dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    dialog.window?.decorView?.setPadding(0, 0, 0, 0)
+    dialog.window?.let { fullscreenWindow ->
+        fullscreenWindow.setLayout(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT
+        )
+        fullscreenWindow.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Allow the video surface to extend into the landscape display cutout area.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            fullscreenWindow.attributes = fullscreenWindow.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            fullscreenWindow.setDecorFitsSystemWindows(false)
+        }
+    }
     dialog.window?.decorView?.systemUiVisibility = (
         View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             or View.SYSTEM_UI_FLAG_FULLSCREEN
