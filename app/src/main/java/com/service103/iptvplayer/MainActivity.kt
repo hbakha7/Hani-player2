@@ -19,7 +19,6 @@ import android.view.WindowManager
 import android.widget.*
 import android.text.InputType
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.analytics.FirebaseAnalytics
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -92,9 +91,7 @@ private val prefs by lazy {
 }  
 
 override fun onCreate(savedInstanceState: Bundle?) {  
-    super.onCreate(savedInstanceState)
-    // Record a simple event to verify Firebase Analytics delivery.
-    FirebaseAnalytics.getInstance(this).logEvent("htv_app_open", null)  
+    super.onCreate(savedInstanceState)  
     window.statusBarColor = bg
     window.navigationBarColor = bg
     buildHome()
@@ -453,80 +450,27 @@ navItem("+", "إضافة") {
 root.addView(navigation)  
 setContentView(root)  
 
-menu.setOnClickListener {
-    val drawer = Dialog(this)
-    val drawerRoot = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(14), dp(24), dp(10), dp(12))
-        setBackgroundColor(Color.rgb(8, 25, 42))
-    }
-
-    val brand = TextView(this).apply {
-        text = "HTV PLAYER"
-        textSize = 24f
-        typeface = Typeface.DEFAULT_BOLD
-        gravity = Gravity.CENTER
-        setTextColor(Color.WHITE)
-        setPadding(dp(8), dp(24), dp(8), dp(30))
-    }
-    drawerRoot.addView(brand, LinearLayout.LayoutParams(-1, dp(125)))
-
-    fun drawerItem(icon: String, caption: String, action: () -> Unit) {
-        val item = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            isClickable = true
-            isFocusable = true
-            setPadding(dp(8), dp(4), dp(4), dp(4))
-            setOnClickListener {
-                drawer.dismiss()
-                action()
+menu.setOnClickListener {  
+    AlertDialog.Builder(this)  
+        .setTitle("HTV PLAYER")  
+        .setItems(
+            arrayOf(
+                "الرئيسية",
+                "إضافة رابط",
+                "الروابط المحفوظة",
+                "About HTV PLAYER",
+                "Privacy Policy"
+            )
+        ) { _, which ->
+            when (which) {
+                0 -> renderSavedHomeLinks(content, empty)
+                1 -> showAddLinkForm()
+                2 -> showSaved()
+                3 -> showAbout()
+                4 -> showPrivacyPolicy()
             }
-        }
-        val iconView = TextView(this).apply {
-            text = icon
-            textSize = 23f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-        }
-        item.addView(iconView, LinearLayout.LayoutParams(dp(48), dp(54)))
-        val captionView = TextView(this).apply {
-            text = caption
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), 0, dp(4), 0)
-        }
-        item.addView(captionView, LinearLayout.LayoutParams(0, dp(54), 1f))
-        drawerRoot.addView(item, LinearLayout.LayoutParams(-1, dp(58)))
-    }
-
-    drawerItem("⌂", "Home") { renderSavedHomeLinks(content, empty) }
-    drawerItem("+", "Add Link") { showAddLinkForm() }
-    drawerItem("▣", "Saved Links") { showSaved() }
-    drawerItem("⚿", "Privacy Policy") { showPrivacyPolicy() }
-
-    drawer.setContentView(drawerRoot)
-    drawer.setCancelable(true)
-    drawer.window?.let { w ->
-        w.setBackgroundDrawableResource(android.R.color.transparent)
-        w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        val params = w.attributes
-        params.gravity = Gravity.START
-        params.width = (resources.displayMetrics.widthPixels * 0.76f).toInt()
-        params.height = ViewGroup.LayoutParams.MATCH_PARENT
-        params.dimAmount = 0.60f
-        w.attributes = params
-    }
-    drawer.show()
-    drawer.window?.let { w ->
-        w.setLayout(
-            (resources.displayMetrics.widthPixels * 0.76f).toInt(),
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        w.setGravity(Gravity.START)
-    }
+        }  
+        .show()  
 }  
 
 search.setOnClickListener {  
@@ -564,76 +508,19 @@ search.setOnClickListener {
 
 }
 
-private fun showPrivacyPolicy() {
-    val policyText = """
-PRIVACY POLICY
-HTV PLAYER
-
-Last updated: October 18, 2026
-
-1. Introduction
-HTV PLAYER is a media player that allows users to play video streams and playlists supplied by the user. This Privacy Policy explains how information is handled when you use the app.
-
-2. Information You Provide
-The app may store information that you enter, including stream names and URLs, M3U playlist URLs, Xtream Codes server addresses, usernames and passwords, and playback settings such as User-Agent, Referer, Cookie, authentication, and DRM-related values.
-
-3. Storage on Your Device
-Saved links, playlist addresses, account details, and playback form settings are stored locally on your device using Android SharedPreferences. The app's code does not provide a cloud account or a developer-operated account-sync service. Anyone with access to your unlocked device or app data may be able to access locally stored information.
-
-4. Connections to Streaming Providers
-When you play a stream, load a playlist, or connect to an Xtream Codes server, the app sends the relevant request to the server address you provide. That server may receive your IP address, connection information, requested URL, and any credentials or request headers required for playback. The privacy practices of those servers are controlled by their respective operators, not by HTV PLAYER.
-
-5. Information Collection and Sharing
-HTV PLAYER uses Firebase Analytics to measure app usage, including app-open events and general usage statistics. Analytics data is sent to Google/Firebase and may include app-instance identifiers, device/app information, and usage events as described in Google's privacy documentation. The app does not intentionally send your saved streaming URLs, usernames, passwords, cookies, or playback headers to Firebase Analytics. Information is sent to streaming servers as needed to fulfil your playback requests. If you open a link in another app or browser, that app or service may handle information according to its own privacy policy.
-
-6. Third-Party Content
-You are responsible for the playlists, stream URLs, and account details you choose to use. Only use content and services that you are authorized to access. We do not control third-party streaming providers, their content, or their data-handling practices.
-
-7. Security
-Please protect your device and avoid entering credentials into servers you do not trust. No method of local storage or internet transmission can be guaranteed to be completely secure.
-
-8. Children's Privacy
-HTV PLAYER is a general-purpose media player and is not specifically directed at children. Parents or guardians should supervise children's use of the app and the services accessed through it.
-
-9. Changes to This Policy
-This policy may be updated when the app's features or practices change. The latest version should be made available with the app.
-
-10. Contact
-For privacy questions about this app, contact the app developer or distributor through the contact details provided with the app, if available.
-    """.trimIndent()
-
-    val scroll = ScrollView(this)
-    val textView = TextView(this).apply {
-        text = policyText
-        textSize = 15f
-        setTextColor(Color.BLACK)
-        setBackgroundColor(Color.WHITE)
-        setPadding(dp(18), dp(16), dp(18), dp(16))
-        setTextIsSelectable(true)
-        setLineSpacing(dp(3).toFloat(), 1.0f)
-    }
-    scroll.addView(
-        textView,
-        ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-    )
-
-    val policyDialog = AlertDialog.Builder(this)
-        .setTitle("Privacy Policy")
-        .setView(scroll)
-        .setPositiveButton("Close", null)
-        .create()
-    policyDialog.setOnShowListener {
-        policyDialog.window?.setBackgroundDrawableResource(android.R.color.white)
-        policyDialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            ?.setTextColor(Color.rgb(8, 25, 42))
-    }
-    policyDialog.show()
-}
-
 private fun showAddLinkForm() {
+// Clear legacy form drafts: the add form should start empty each time.
+prefs.edit()
+    .remove("add_name")
+    .remove("add_url")
+    .remove("add_user_agent")
+    .remove("add_referrer")
+    .remove("add_auth")
+    .remove("add_cookie")
+    .remove("add_license")
+    .remove("add_drm_scheme")
+    .apply()
+
 val root = makeColumn()
 val scroll = ScrollView(this)
 val form = makeColumn()
@@ -681,15 +568,6 @@ val referrerInput = inputField("Referrer")
 val authInput = inputField("Authentication")  
 val cookieInput = inputField("Cookie (name=joe;app=xpola;id=value ...)")  
 val licenseInput = inputField("License")
-
-// Restore the last entered values so all headers stay together for the next playback.
-nameInput.setText(prefs.getString("add_name", ""))
-urlInput.setText(prefs.getString("add_url", ""))
-userAgentInput.setText(prefs.getString("add_user_agent", ""))
-referrerInput.setText(prefs.getString("add_referrer", ""))
-authInput.setText(prefs.getString("add_auth", ""))
-cookieInput.setText(prefs.getString("add_cookie", ""))
-licenseInput.setText(prefs.getString("add_license", ""))
 
 addField(nameInput)  
 addField(urlInput)  
@@ -824,18 +702,6 @@ form.addView(button("تشغيل الرابط") {
         return@button  
     }  
 
-    // Save all request headers and DRM selection before any playback path is chosen.
-    prefs.edit()
-        .putString("add_name", name)
-        .putString("add_url", link)
-        .putString("add_user_agent", userAgentInput.text.toString().trim())
-        .putString("add_referrer", referrerInput.text.toString().trim())
-        .putString("add_auth", authInput.text.toString().trim())
-        .putString("add_cookie", cookieInput.text.toString().trim())
-        .putString("add_license", licenseInput.text.toString().trim())
-        .putString("add_drm_scheme", drmScheme.selectedItem.toString())
-        .apply()
-
     // حفظ الاسم والرابط في الرئيسية، مع تحديث الرابط بدل تكراره.
     if (!browserCheck.isChecked && !webPlayerCheck.isChecked) {
         saveHomeLink(name, link, m3uCheck.isChecked, referrerInput.text.toString())
@@ -859,18 +725,6 @@ form.addView(button("تشغيل الرابط") {
         message("مشغل WEB PLAYER غير مفعّل حاليًا")  
         return@button  
     }  
-
-    // حفظ حقول الرابط لإتاحتها عند فتح النموذج مرة أخرى  
-    prefs.edit()  
-        .putString("add_name", nameInput.text.toString())  
-        .putString("add_url", link)  
-        .putString("add_user_agent", userAgentInput.text.toString())  
-        .putString("add_referrer", referrerInput.text.toString())  
-        .putString("add_auth", authInput.text.toString())  
-        .putString("add_cookie", cookieInput.text.toString())  
-        .putString("add_license", licenseInput.text.toString())
-        .putString("add_drm_scheme", drmScheme.selectedItem.toString())
-        .apply()  
 
     if (m3uCheck.isChecked) {  
         prefs.edit().putString("last_m3u", link).apply()  
@@ -2210,6 +2064,81 @@ private fun openFullscreen() {
     )
     handler.post(updateProgress)
     handler.postDelayed(hideControls, 4500)
+}
+
+
+private fun showAbout() {
+    val body = """HTV PLAYER
+
+Version: 1.0
+
+HTV PLAYER is a media player that lets you play video streams and playlists from sources you provide, including direct video links, M3U/M3U8 playlists, and compatible Xtream Codes services.
+
+The app does not provide or host streaming content. You are responsible for using sources and content that you are authorized to access.
+
+For privacy questions or support, contact: [EMAIL ADDRESS TO BE ADDED]
+
+Read the Privacy Policy for information about locally stored settings and connections to third-party streaming providers.""".trimIndent()
+    showInformationPage("About HTV PLAYER", body)
+}
+
+private fun showPrivacyPolicy() {
+    val body = """PRIVACY POLICY
+
+Last updated: October 18, 2026
+
+1. About this policy
+This policy explains how HTV PLAYER handles information when you use the app.
+
+2. Information stored on your device
+The app uses Android local preferences to remember settings and information you enter, which may include saved playlist or stream URLs, link names, request headers (such as User-Agent, Referer, Cookie, or Authorization), DRM settings, and Xtream Codes server addresses, usernames, and passwords. This information is stored locally on your device by the app. Do not enter credentials you are not authorized to use. Anyone with access to your unlocked device or app data may be able to access locally stored information.
+
+3. Connections to streaming providers
+When you load a playlist, connect to an Xtream Codes service, load channel logos, or play a stream, the app connects to the server or URL you provide. Those third-party servers may receive your IP address, connection details, requested URLs, and request headers, and may process them under their own privacy policies. HTV PLAYER does not control those third-party services.
+
+4. Data sent to the app developer
+The app code reviewed for this version does not show an app-owned account service or a developer-operated server for collecting the saved links or credentials. This statement does not cover behavior of third-party services, Android, or any SDKs included elsewhere in the app project.
+
+5. Sharing
+The app may send the request information necessary to the streaming provider you choose, as described above. Review the provider's privacy policy before connecting. Do not share your device or saved credentials with people you do not trust.
+
+6. Security and retention
+Saved settings and credentials remain on your device until you remove them in the app, clear the app's data, or uninstall the app. Local storage is not a guarantee of encryption. Use a secure device and avoid saving sensitive credentials on shared devices.
+
+7. Children's privacy
+HTV PLAYER is not designed to collect personal information from children. Parents or guardians should supervise children's use of streaming services and devices.
+
+8. Your choices and deletion
+You can remove saved links through the app's available delete option. You can clear other locally saved settings or credentials by clearing HTV PLAYER's app data in Android settings or uninstalling the app. This does not delete records held by third-party streaming providers.
+
+9. Changes to this policy
+This policy may be updated when app features or data handling change. The latest version should be published at the public privacy-policy URL provided for the app.
+
+10. Contact
+For privacy questions or requests, contact: [EMAIL ADDRESS TO BE ADDED]
+
+Replace the email placeholder before publishing this policy publicly or submitting the app to Google Play.""".trimIndent()
+    showInformationPage("Privacy Policy", body)
+}
+
+private fun showInformationPage(pageTitle: String, pageText: String) {
+    val textView = TextView(this).apply {
+        text = pageText
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        setLineSpacing(dp(3).toFloat(), 1.0f)
+        setPadding(dp(18), dp(16), dp(18), dp(16))
+        textIsSelectable = true
+    }
+    val scroll = ScrollView(this).apply {
+        setBackgroundColor(bg)
+        addView(textView, ScrollView.LayoutParams(-1, -2))
+    }
+    AlertDialog.Builder(this)
+        .setTitle(pageTitle)
+        .setView(scroll)
+        .setPositiveButton("Close", null)
+        .show()
 }
 
 private fun showVolume() {  
