@@ -81,6 +81,7 @@ private var serverFailoverPending = false
 private var serverFailoverAttempts = 0
 private var serverStartupTimeout: Runnable? = null
 private var fullscreenView: PlayerView? = null
+private var loadingIndicator: ProgressBar? = null
 private var serverButtonsBar: LinearLayout? = null  
 private var savedParent: ViewGroup? = null  
 private var savedIndex = -1  
@@ -1225,8 +1226,8 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
     val httpFactory = DefaultHttpDataSource.Factory()
         .setDefaultRequestProperties(headers)
         .setAllowCrossProtocolRedirects(true)
-        .setConnectTimeoutMs(6000)
-        .setReadTimeoutMs(12000)
+        .setConnectTimeoutMs(10000)
+        .setReadTimeoutMs(15000)
 
     if (userAgent != null) {
         httpFactory.setUserAgent(userAgent)
@@ -1280,6 +1281,13 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (player === exo) {
+                        loadingIndicator?.visibility = when (playbackState) {
+                            Player.STATE_BUFFERING, Player.STATE_IDLE -> View.VISIBLE
+                            Player.STATE_READY, Player.STATE_ENDED -> View.GONE
+                            else -> loadingIndicator?.visibility ?: View.GONE
+                        }
+                    }
                     if (player !== exo || !directLinkPlayback || incomingServerUrls.size < 2) return
                     if (playbackState == Player.STATE_READY) {
                         serverStartupTimeout?.let { serverFailoverHandler.removeCallbacks(it) }
@@ -1293,7 +1301,7 @@ private fun createPlaybackPlayer(refererOverride: String? = null): ExoPlayer {
                             }
                         }
                         serverStartupTimeout = timeout
-                        serverFailoverHandler.postDelayed(timeout, 8000L)
+                        serverFailoverHandler.postDelayed(timeout, 10000L)
                     }
                 }
             })
@@ -1704,6 +1712,17 @@ private fun openFullscreen() {
     frame.addView(fullPlayer, FrameLayout.LayoutParams(-1, -1))
     fullscreenView = fullPlayer
 
+    // Centered spinner shown until playback is ready and whenever buffering resumes.
+    val spinner = ProgressBar(this).apply {
+        isIndeterminate = true
+        visibility = View.VISIBLE
+        indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        contentDescription = "جارٍ تحميل البث"
+    }
+    loadingIndicator = spinner
+    val spinnerSize = dp(48)
+    frame.addView(spinner, FrameLayout.LayoutParams(spinnerSize, spinnerSize, Gravity.CENTER))
+
     val handler = Handler(Looper.getMainLooper())
     var controlsVisible = true
 
@@ -2012,6 +2031,7 @@ private fun openFullscreen() {
     dialog.setOnDismissListener {
         handler.removeCallbacks(updateProgress)
         handler.removeCallbacks(hideControls)
+        loadingIndicator = null
         fullPlayer.player = null
         (fullPlayer.parent as? ViewGroup)?.removeView(fullPlayer)
         if (directLinkPlayback) {
