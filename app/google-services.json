@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "600553256510",
+    "firebase_url": "https://iptv-player-2f4a1-default-rtdb.firebaseio.com",
+    "project_id": "iptv-player-2f4a1",
+    "storage_bucket": "iptv-player-2f4a1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:600553256510:android:a8d3ab967a3bd2a02b436f",
+        "android_client_info": {
+          "package_name": "com.service103.iptvplayer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZ83EK4G_XMzvJtEUcIXv8MfzdlMNpaH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
