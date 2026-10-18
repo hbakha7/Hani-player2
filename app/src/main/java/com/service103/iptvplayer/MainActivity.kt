@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.*
 import android.text.InputType
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.analytics.FirebaseAnalytics
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -91,7 +92,9 @@ private val prefs by lazy {
 }  
 
 override fun onCreate(savedInstanceState: Bundle?) {  
-    super.onCreate(savedInstanceState)  
+    super.onCreate(savedInstanceState)
+    // Record a simple event to verify Firebase Analytics delivery.
+    FirebaseAnalytics.getInstance(this).logEvent("htv_app_open", null)  
     window.statusBarColor = bg
     window.navigationBarColor = bg
     buildHome()
@@ -581,7 +584,7 @@ Saved links, playlist addresses, account details, and playback form settings are
 When you play a stream, load a playlist, or connect to an Xtream Codes server, the app sends the relevant request to the server address you provide. That server may receive your IP address, connection information, requested URL, and any credentials or request headers required for playback. The privacy practices of those servers are controlled by their respective operators, not by HTV PLAYER.
 
 5. Information Collection and Sharing
-The app code does not include an analytics or advertising SDK, and it does not intentionally send your saved settings to the app developer. Information is sent to streaming servers as needed to fulfil your playback requests. If you open a link in another app or browser, that app or service may handle information according to its own privacy policy.
+HTV PLAYER uses Firebase Analytics to measure app usage, including app-open events and general usage statistics. Analytics data is sent to Google/Firebase and may include app-instance identifiers, device/app information, and usage events as described in Google's privacy documentation. The app does not intentionally send your saved streaming URLs, usernames, passwords, cookies, or playback headers to Firebase Analytics. Information is sent to streaming servers as needed to fulfil your playback requests. If you open a link in another app or browser, that app or service may handle information according to its own privacy policy.
 
 6. Third-Party Content
 You are responsible for the playlists, stream URLs, and account details you choose to use. Only use content and services that you are authorized to access. We do not control third-party streaming providers, their content, or their data-handling practices.
